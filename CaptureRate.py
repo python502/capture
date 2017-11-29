@@ -25,7 +25,8 @@ from bs4 import BeautifulSoup
 from retrying import retry
 from datetime import datetime
 import time
-DICT_MYSQL = {'host': '127.0.0.1', 'user': 'root', 'passwd': '111111', 'db': 'capture', 'port': 3306}
+# DICT_MYSQL = {'host': '127.0.0.1', 'user': 'root', 'passwd': '111111', 'db': 'capture', 'port': 3306}
+DICT_MYSQL = {'host': '118.193.21.62', 'user': 'root', 'passwd': 'Avazu#2017', 'db': 'avazu_opay', 'port': 3306}
 TABLE_NAME_RATE = 'EXCHANGE_RATE_RAW'
 '''
 classdocs
@@ -131,7 +132,7 @@ class CaptureRate(object):
             soup = BeautifulSoup(html, 'lxml')
             trs = soup.find('table').find_all('tr')[1:]
             for tr in trs:
-                result = ['01', 'CIMB', 'SGD']
+                result = ['02', 'CIMB', 'SGD']
                 result.append(tr.find_all('td')[1].getText())
                 result.append(float(tr.find_all('td')[2].getText()))
                 result.append(float(tr.find_all('td')[2].getText()))
@@ -151,7 +152,7 @@ class CaptureRate(object):
     def dealRateOfCimbSg(self):
         try:
             results = self.getRateOfCimbSg()
-            select_sql = 'SELECT ID FROM exchange_rate_raw WHERE EXCHANGE_CHANNEL="{}" and FROM_CURRENCY="{}" AND TO_CURRENCY="{}" ORDER BY CREATE_TIME DESC '
+            select_sql = 'SELECT ID FROM exchange_rate_raw WHERE EXCHANGE_TYPE="{}" AND EXCHANGE_CHANNEL="{}" AND FROM_CURRENCY="{}" AND TO_CURRENCY="{}" ORDER BY CREATE_TIME DESC '
             return self.saveExchangeRate(select_sql, results)
         except Exception, e:
             logger.error('dealRateOfCimbSg error:{}'.format(e))
@@ -167,7 +168,7 @@ class CaptureRate(object):
         insert_datas = []
         update_datas = []
         for sourcedata in sourcedatas:
-            sql = select_sql.format(sourcedata[1], sourcedata[2], sourcedata[3])
+            sql = select_sql.format(sourcedata[0], sourcedata[1], sourcedata[2], sourcedata[3])
             logger.debug('select sql: {}'.format(sql))
             try:
                 result = self.mysql.sql_query(sql)

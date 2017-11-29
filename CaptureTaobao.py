@@ -33,6 +33,7 @@ from datetime import datetime
 from urlparse import urljoin
 
 DICT_MYSQL = {'host': '127.0.0.1', 'user': 'root', 'passwd': '111111', 'db': 'capture', 'port': 3306}
+# DICT_MYSQL = {'host': '118.193.21.62', 'user': 'root', 'passwd': 'Avazu#2017', 'db': 'avazu_opay', 'port': 3306}
 TABLE_NAME_GOODS = 'market_product_raw'
 TABLE_NAME_HOME = 'market_banner_raw'
 TABLE_NAME_VERIFY = 'market_verify_raw'
@@ -261,17 +262,19 @@ class CaptureTaobao(object):
         insert_datas=[]
         update_datas=[]
         for sourcedata in sourcedatas:
-            sql = select_sql.format(sourcedata[0], sourcedata[1].encode('utf8') if isinstance(sourcedata[1], (str, unicode)) else sourcedata[1], sourcedata[4])
+            sql = select_sql.format(sourcedata[0], sourcedata[1].encode('utf8') if isinstance(sourcedata[1], (str, unicode)) else sourcedata[1], sourcedata[3])
             logger.debug('select sql: {}'.format(sql))
             try:
                 result = self.mysql.sql_query(sql)
                 if not result:
                     insert_datas.append(sourcedata)
+                    sourcedata.append('01')
                 else:
                     if len(result) != 1:
                         logger.error('checkCategoryDatas get many lines:{}'.format(result))
                         logger.error('select_sql: {}'.format(sql))
                     sourcedata.insert(0, result[0].get('ID'))
+                    sourcedata.append(result[0].get('STATUS'))
                     update_datas.append(sourcedata)
             except Exception, e:
                 logger.error('checkCategoryDatas\'s error: {}.'.format(e))
@@ -289,13 +292,13 @@ class CaptureTaobao(object):
             if not good_datas:
                 logger.error('not get datas to save')
                 return False
-            select_sql = 'SELECT ID FROM market_product_raw WHERE CHANNEL="{}" and KIND="{}" AND NUMBER="{}" ORDER BY CREATE_TIME DESC '
+            select_sql = 'SELECT ID,STATUS FROM market_product_raw WHERE CHANNEL="{}" and KIND="{}" AND PRODUCT_ID="{}" ORDER BY CREATE_TIME DESC '
             (insert_datas, update_datas) = self.__checkCategoryDatas(select_sql, good_datas)
             if insert_datas:
                 l = len(insert_datas)
                 self.insert += l
                 logger.info('len insert_datas: {}'.format(l))
-                insert_sql = 'INSERT INTO {}(CHANNEL,KIND,SITE,STATUS,Number,LINK,MAIN_IMAGE,NAME,DETAIL_IMAGE,DESCRIPTION,Currency,AMOUNT,CREATE_TIME,DISPLAY_COUNT) VALUES'.format(
+                insert_sql = 'INSERT INTO {}(CHANNEL,KIND,SITE,PRODUCT_ID,LINK,MAIN_IMAGE,NAME,DETAIL_IMAGE,DESCRIPTION,Currency,AMOUNT,CREATE_TIME,DISPLAY_COUNT,STATUS) VALUES'.format(
                     TABLE_NAME_GOODS)
                 result_insert = self.mysql.insert_batch(insert_sql, insert_datas)
                 logger.info('result_insert: {}'.format(result_insert))
@@ -303,7 +306,7 @@ class CaptureTaobao(object):
                 l = len(update_datas)
                 self.update += l
                 logger.info('len update_datas: {}'.format(l))
-                update_sql = 'REPLACE INTO {}(ID,CHANNEL,KIND,SITE,STATUS,Number,LINK,MAIN_IMAGE,NAME,DETAIL_IMAGE,DESCRIPTION,Currency,AMOUNT,CREATE_TIME,DISPLAY_COUNT) VALUES'.format(
+                update_sql = 'REPLACE INTO {}(ID,CHANNEL,KIND,SITE,PRODUCT_ID,LINK,MAIN_IMAGE,NAME,DETAIL_IMAGE,DESCRIPTION,Currency,AMOUNT,CREATE_TIME,DISPLAY_COUNT,STATUS) VALUES'.format(
                     TABLE_NAME_GOODS)
                 result_update = self.mysql.insert_batch(update_sql, update_datas)
                 logger.info('result_update: {}'.format(result_update))
@@ -343,7 +346,7 @@ class CaptureTaobao(object):
             if len_goods == 48:
                 goods_infos = goods_infos[:44]
             for goods_info in goods_infos:
-                resultData = [self.Channel, category, 's.taobao', '01']
+                resultData = [self.Channel, category, 's.taobao']
                 try:
                     good_id = goods_info.find_all('a', {'class':"pic-link J_ClickStat J_ItemPicA"})[0].attrs['data-nid']
                     resultData.append(good_id)
@@ -523,7 +526,7 @@ def main():
     objCaptureTaobao.dealCategorys()
 
     # 查询并入库首页推荐商品信息
-    objCaptureTaobao.dealHomeGoods()
+    # objCaptureTaobao.dealHomeGoods()
 
     #查询商品总信息 例如总页数 总条数
     # objCaptureTaobao.getPageInfos(u'https://s.taobao.com/search?spm=a21wu.241046-cn.6977698868.5.2816e72eg2pkH9&q=%E5%A5%B3%E8%A3%85&acm=lb-zebra-241046-2058600.1003.4.1797247&scm=1003.4.lb-zebra-241046-2058600.OTHER_14950676920071_1797247')
@@ -535,7 +538,7 @@ def main():
     # objCaptureTaobao.dealCategory(u'\u6c7d\u8f66/\u5a31\u4e50', u'https://s.taobao.com/search?q=%E6%B1%BD%E8%BD%A6%E7%94%A8%E5%93%81&acm=lb-zebra-241046-2058600.1003.4.1797247&scm=1003.4.lb-zebra-241046-2058600.OTHER_149506538351411_1797247&sort=renqi-desc')
     # 获取具体网址的html信息
     # print objCaptureTaobao.getHtml(u'https://s.taobao.com/search?spm=a21wu.241046-cn.6977698868.5.2816e72eg2pkH9&q=%E5%A5%B3%E8%A3%85&acm=lb-zebra-241046-2058600.1003.4.1797247&scm=1003.4.lb-zebra-241046-2058600.OTHER_14950676920071_1797247')
-    print objCaptureTaobao.getHtml('https://world.taobao.com/')
+    # print objCaptureTaobao.getHtml('https://world.taobao.com/')
     # 入库商品信息
     # objCaptureTaobao.saveCategoryGoods([['taobao', u'\u5973\u88c5\u7cbe\u54c1', 's.taobao', '01', '544980174926', 'https://detail.tmall.com/item.htm?id=544980174926', u'\u6625\u79cb\u65b0\u6b3e\u4e00\u5b57\u9886\u9488\u7ec7\u886b\u957f\u8896\u77ed\u6b3e\u7d27\u8eab\u6bdb\u8863\u5973', 'https://detail.tmall.com/item.htm?id=//g-search1.alicdn.com/img/bao/uploaded/i4/imgextra/i4/1748305007546288692/TB25MFUemFjpuFjSszhXXaBuVXa_!!0-saturn_solar.jpg_180x180.jpg', 'https://detail.tmall.com/item.htm?id=//g-search1.alicdn.com/img/bao/uploaded/i4/imgextra/i4/1748305007546288692/TB25MFUemFjpuFjSszhXXaBuVXa_!!0-saturn_solar.jpg_180x180.jpg', u'\u6625\u79cb\u65b0\u6b3e\u4e00\u5b57\u9886\u9488\u7ec7\u886b\u97e9\u7248\u5973\u88c5\u4fee\u8eab\u6253\u5e95\u886b\u957f\u8896\u77ed\u6b3e\u7d27\u8eab\u6bdb\u8863\u5973\u5957\u5934', 'CNY', 59.0, time.strftime('%Y%m%d%H%M%S', time.localtime(time.time())),5037]])
     endTime = datetime.now()

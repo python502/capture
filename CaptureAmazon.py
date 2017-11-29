@@ -32,7 +32,7 @@ from retrying import retry
 from datetime import datetime
 from urlparse import urljoin
 
-DICT_MYSQL = {'host': '127.0.0.1', 'user': 'root', 'passwd': '111111', 'db': 'capture', 'port': 3306}
+DICT_MYSQL = {'host': '118.193.21.62', 'user': 'root', 'passwd': 'Avazu#2017', 'db': 'avazu_opay', 'port': 3306}
 TABLE_NAME_GOODS = 'market_product_raw'
 TABLE_NAME_HOME = 'market_banner_raw'
 TABLE_NAME_VERIFY = 'market_verify_raw'
@@ -217,7 +217,7 @@ class CaptureAmazon(object):
         Not_BEST_DEAL = 0
         for sourceData in sourceDatas.values():
             try:
-                resultData = [self.Channel, category, 'goldbox', '01']
+                resultData = [self.Channel, category, 'goldbox']
                 if 'BEST_DEAL' != sourceData.get('type'):
                     logger.debug('sourceData:{} type isn\'t "BEST_DEAL"'.format(sourceData))
                     Not_BEST_DEAL+=1
@@ -278,17 +278,19 @@ class CaptureAmazon(object):
         insert_datas=[]
         update_datas=[]
         for sourcedata in sourcedatas:
-            sql = select_sql.format(sourcedata[0], sourcedata[1].encode('utf8') if isinstance(sourcedata[1], (str, unicode)) else sourcedata[1], sourcedata[4], sourcedata[-1])
+            sql = select_sql.format(sourcedata[0], sourcedata[1].encode('utf8') if isinstance(sourcedata[1], (str, unicode)) else sourcedata[1], sourcedata[3], sourcedata[-1])
             logger.debug('select sql: {}'.format(sql))
             try:
                 result = self.mysql.sql_query(sql)
                 if not result:
                     insert_datas.append(sourcedata)
+                    sourcedata.append('01')
                 else:
                     if len(result) != 1:
                         logger.error('checkCategoryDatas get many lines:{}'.format(result))
                         logger.error('select_sql: {}'.format(sql))
                     sourcedata.insert(0, result[0].get('ID'))
+                    sourcedata.append(result[0].get('STATUS'))
                     update_datas.append(sourcedata)
             except Exception, e:
                 logger.error('checkCategoryDatas\'s error: {}.'.format(e))
@@ -307,20 +309,20 @@ class CaptureAmazon(object):
             if not des_datas:
                 logger.error('not get datas after format_data')
                 return False
-            select_sql = 'SELECT ID FROM market_product_raw WHERE CHANNEL="{}" and KIND="{}" AND NUMBER="{}" AND RESERVE="{}" ORDER BY CREATE_TIME DESC '
+            select_sql = 'SELECT ID,STATUS FROM market_product_raw WHERE CHANNEL="{}" and KIND="{}" AND PRODUCT_ID="{}" AND RESERVE="{}" ORDER BY CREATE_TIME DESC '
             (insert_datas, update_datas) = self.__checkCategoryDatas(select_sql, des_datas)
             if insert_datas:
                 l = len(insert_datas)
                 self.insert +=l
                 logger.info('{} len insert_datas: {}'.format(category.encode('utf8'), l))
-                insert_sql = 'INSERT INTO {}(CHANNEL,KIND,SITE,STATUS,Number,LINK,MAIN_IMAGE,NAME,DESCRIPTION,Currency,AMOUNT,HIGH_AMOUNT,Before_AMOUNT,HIGH_Before_AMOUNT,Featured,CREATE_TIME,DISPLAY_COUNT,RESERVE) VALUES'.format(TABLE_NAME_GOODS)
+                insert_sql = 'INSERT INTO {}(CHANNEL,KIND,SITE,PRODUCT_ID,LINK,MAIN_IMAGE,NAME,DESCRIPTION,Currency,AMOUNT,HIGH_AMOUNT,Before_AMOUNT,Before_HIGH_AMOUNT,COMMEND_FLAG,CREATE_TIME,DISPLAY_COUNT,RESERVE,STATUS) VALUES'.format(TABLE_NAME_GOODS)
                 result_insert = self.mysql.insert_batch(insert_sql, insert_datas)
                 logger.info('result_insert: {}'.format(result_insert))
             if update_datas:
                 l = len(update_datas)
                 self.update += l
                 logger.info('{} len update_datas: {}'.format(category.encode('utf8'), l))
-                update_sql = 'REPLACE INTO {}(ID,CHANNEL,KIND,SITE,STATUS,Number,LINK,MAIN_IMAGE,NAME,DESCRIPTION,Currency,AMOUNT,HIGH_AMOUNT,Before_AMOUNT,HIGH_Before_AMOUNT,Featured,CREATE_TIME,DISPLAY_COUNT,RESERVE) VALUES'.format(TABLE_NAME_GOODS)
+                update_sql = 'REPLACE INTO {}(ID,CHANNEL,KIND,SITE,PRODUCT_ID,LINK,MAIN_IMAGE,NAME,DESCRIPTION,Currency,AMOUNT,HIGH_AMOUNT,Before_AMOUNT,Before_HIGH_AMOUNT,COMMEND_FLAG,CREATE_TIME,DISPLAY_COUNT,RESERVE,STATUS) VALUES'.format(TABLE_NAME_GOODS)
                 result_update = self.mysql.insert_batch(update_sql, update_datas)
                 logger.info('result_update: {}'.format(result_update))
             return True
@@ -526,7 +528,8 @@ class CaptureAmazon(object):
                     else:
                         resultData.append(urljoin(self.home_url, href.split('?')[0]))
                     resultData.append(good_data.findAll('span')[0].findAll('img')[0].attrs['alt'])
-                    resultData.append(good_data.findAll('span')[0].findAll('img')[0].attrs['src'])
+                    # #不要小图
+                    # resultData.append(good_data.findAll('span')[0].findAll('img')[0].attrs['src'])
                     resultData.append(good_data.findAll('span')[0].findAll('img')[0].attrs['data-a-hires'])
                     resultData.append(time.strftime('%Y%m%d%H%M%S', time.localtime(time.time())))
                     result_datas.append(resultData)
@@ -540,7 +543,9 @@ class CaptureAmazon(object):
                 raise ValueError('not get valid data')
             select_sql = 'SELECT ID FROM market_banner_raw WHERE CHANNEL="{}" and LINK="{}" ORDER BY CREATE_TIME DESC '
             (insert_datas, update_datas) = self.__checkHomeDatas(select_sql, result_datas)
-            column = 'CHANNEL, LINK, TITLE, MIN_IMAGE, MAIN_IMAGE, CREATE_TIME'
+            # #不要小图
+            # column = 'CHANNEL, LINK, TITLE, MIN_IMAGE, MAIN_IMAGE, CREATE_TIME'
+            column = 'CHANNEL, LINK, TITLE, MAIN_IMAGE, CREATE_TIME'
             if insert_datas:
                 length = len(insert_datas)
                 self.insert += length
@@ -573,7 +578,7 @@ def main():
     # 获取所有类别id
     # objCaptureAmazon.get_department()
     # 查询并入库所有类别的商品信息
-    # objCaptureAmazon.dealCategorys()
+    objCaptureAmazon.dealCategorys()
     # 查询并入库首页推荐商品信息
     objCaptureAmazon.dealHomeGoods()
     # 查询dealID的商品信息
@@ -583,7 +588,7 @@ def main():
     # 获取具体网址的html信息
     # objCaptureAmazon.getHtml('https://www.amazon.com/gp/goldbox/?gb_f_GB-SUPPLE=enforcedCategories:2625373011,sortOrder:BY_SCORE,dealStates:AVAILABLE%252CWAITLIST%252CWAITLISTFULL')
     # 入库商品信息
-    objCaptureAmazon.saveCategoryGoods('category', {u'ef615d66': {u'eventID': None, u'isFulfilledByAmazon': True, u'maxBAmount': 119.99, u'itemType': u'MULTI_ITEM', u'parentItems': None, u'minBAmount': 29.99, u'msToEnd': 1019659496, u'reviewRating': 4.683050632476807, u'bKind': u'LP', u'primaryImage': u'https://images-na.ssl-images-amazon.com/images/I/51cqIld2aeL.jpg', u'maxPercentOff': 45, u'isPrimeEligible': True, u'msToFeatureEnd': 0, u'baseUnitValue': None, u'maxCurrentPrice': 80, u'baseUnitName': None, u'maxListPrice': 119.99, u'title': u'Up to 25% Off CopperChef Cookware', u'isFeatured': False, u'currencyCode': u'USD', u'msToStart': -189939504, u'marketingMessage': None, u'offerID': u'mBaSHXZojCa%2B7wGS9mTjDuPJiUe%2FYrhrejE0IT4qWBAp3Z0n7QaoyA2bqfvfyMBUSIXq58LPqpwcw9wCRCkw70UMshxZu1gGJDe4vmcJBnLo83SNOYoCmA%3D%3D', u'isMAP': False, u'score': 0, u'minPrevPrice': 27.88, u'glProductGroup': u'gl_kitchen', u'type': u'BEST_DEAL', u'merchantID': u'ATVPDKIKX0DER', u'egressUrl': u'https://www.amazon.com/Copper-Chef-6-Piece-Cookware-Set/dp/B01BDTWYP0', u'minPercentOff': 25, u'geoDisplayName': None, u'description': u'Save up to 25% on select CopperChef cookware, bakeware and more.', u'extendedAttributes': None, u'minListPrice': 29.99, u'totalReviews': 77, u'impressionAsin': u'B074XJ6R2B', u'ingressUrl': u'https://www.amazon.com/gp/goldbox', u'minDealPrice': 16.46, u'displayPriority': 0, u'primeAccessType': None, u'teaserAsin': None, u'merchantName': u'Amazon.com', u'legacyDealID': u'AV9JP3XB32WCF', u'accessBehavior': None, u'minCurrentPrice': 16.46, u'pricePerUnit': None, u'maxPrevPrice': 119.99, u'items': [], u'secondaryImages': None, u'teaser': None, u'dealID': u'ef615d66', u'teaserImage': None, u'reviewAsin': u'B074XJ6R2B', u'primeAccessDuration': 0, u'maxDealPrice': 80, u'isEligibleForFreeShipping': False}})
+    # objCaptureAmazon.saveCategoryGoods('category', {u'ef615d66': {u'eventID': None, u'isFulfilledByAmazon': True, u'maxBAmount': 119.99, u'itemType': u'MULTI_ITEM', u'parentItems': None, u'minBAmount': 29.99, u'msToEnd': 1019659496, u'reviewRating': 4.683050632476807, u'bKind': u'LP', u'primaryImage': u'https://images-na.ssl-images-amazon.com/images/I/51cqIld2aeL.jpg', u'maxPercentOff': 45, u'isPrimeEligible': True, u'msToFeatureEnd': 0, u'baseUnitValue': None, u'maxCurrentPrice': 80, u'baseUnitName': None, u'maxListPrice': 119.99, u'title': u'Up to 25% Off CopperChef Cookware', u'isFeatured': False, u'currencyCode': u'USD', u'msToStart': -189939504, u'marketingMessage': None, u'offerID': u'mBaSHXZojCa%2B7wGS9mTjDuPJiUe%2FYrhrejE0IT4qWBAp3Z0n7QaoyA2bqfvfyMBUSIXq58LPqpwcw9wCRCkw70UMshxZu1gGJDe4vmcJBnLo83SNOYoCmA%3D%3D', u'isMAP': False, u'score': 0, u'minPrevPrice': 27.88, u'glProductGroup': u'gl_kitchen', u'type': u'BEST_DEAL', u'merchantID': u'ATVPDKIKX0DER', u'egressUrl': u'https://www.amazon.com/Copper-Chef-6-Piece-Cookware-Set/dp/B01BDTWYP0', u'minPercentOff': 25, u'geoDisplayName': None, u'description': u'Save up to 25% on select CopperChef cookware, bakeware and more.', u'extendedAttributes': None, u'minListPrice': 29.99, u'totalReviews': 77, u'impressionAsin': u'B074XJ6R2B', u'ingressUrl': u'https://www.amazon.com/gp/goldbox', u'minDealPrice': 16.46, u'displayPriority': 0, u'primeAccessType': None, u'teaserAsin': None, u'merchantName': u'Amazon.com', u'legacyDealID': u'AV9JP3XB32WCF', u'accessBehavior': None, u'minCurrentPrice': 16.46, u'pricePerUnit': None, u'maxPrevPrice': 119.99, u'items': [], u'secondaryImages': None, u'teaser': None, u'dealID': u'ef615d66', u'teaserImage': None, u'reviewAsin': u'B074XJ6R2B', u'primeAccessDuration': 0, u'maxDealPrice': 80, u'isEligibleForFreeShipping': False}})
     endTime = datetime.now()
     print 'seconds', (endTime - startTime).seconds
 if __name__ == '__main__':
