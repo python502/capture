@@ -63,8 +63,6 @@ class CaptureTaobao(object):
         # Cookie and Referer is'not necessary
         self.result_url = []
         self.user_agent = user_agent
-        self.insert = 0
-        self.update = 0
         self.get_page = 3
         src_header = self.User_Agent.format(self.user_agent)
         self.header = self.__getDict4str(src_header)
@@ -255,7 +253,7 @@ class CaptureTaobao(object):
                     insert_datas.append(sourcedata)
                 else:
                     if len(result) != 1:
-                        logger.error('checkHomeDatas get many lines:{}'.format(result))
+                        logger.error('__checkDatas get many lines:{}'.format(result))
                         logger.error('select_sql: {}'.format(sql))
                     sourcedata['ID'.lower()] = result[0].get('ID')
                     sourcedata['STATUS'.lower()] = result[0].get('STATUS', '01')
@@ -285,14 +283,12 @@ class CaptureTaobao(object):
             if insert_datas:
                 operate_type = 'insert'
                 l = len(insert_datas)
-                self.insert += l
                 logger.info('len insert_datas: {}'.format(l))
                 result_insert = self.mysql.insert_batch(operate_type, table, columns, insert_datas)
                 logger.info('result_insert: {}'.format(result_insert))
             if update_datas:
                 operate_type = 'replace'
                 l = len(update_datas)
-                self.update += l
                 logger.info('len update_datas: {}'.format(l))
                 columns.insert(0, 'ID')
                 result_update = self.mysql.insert_batch(operate_type, table, columns, update_datas)
@@ -482,14 +478,12 @@ class CaptureTaobao(object):
             if insert_datas:
                 operate_type = 'insert'
                 length = len(insert_datas)
-                self.insert += length
                 logger.info('len insert_datas: {}'.format(length))
                 result_insert = self.mysql.insert_batch(operate_type, table, columns, insert_datas)
                 logger.info('result_insert: {}'.format(result_insert))
             if update_datas:
                 operate_type = 'replace'
                 length = len(update_datas)
-                self.update += length
                 logger.info('len update_datas: {}'.format(length))
                 columns.insert(0, 'ID')
                 result_update = self.mysql.insert_batch(operate_type, table, columns, update_datas)

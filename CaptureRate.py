@@ -39,9 +39,6 @@ class CaptureRate(object):
         # Cookie and Referer is'not necessary
 
         self.user_agent = user_agent
-        self.header = ''
-        self.insert = 0
-        self.update = 0
         self.mysql = MysqldbOperate(DICT_MYSQL)
         #获得一个cookieJar实例
         self.cj = cookielib.CookieJar()
@@ -61,8 +58,8 @@ class CaptureRate(object):
     @url:  url
     @return: html
     '''
-    def getHtml(self, url):
-        HEADER = self.header
+    def getHtml(self, url, header):
+        HEADER = header
         try:
             req = urllib2.Request(url=url, headers=HEADER)
             con = self.__urlOpenRetry(req)
@@ -79,7 +76,6 @@ class CaptureRate(object):
         except Exception,e:
             logger.error('getHtml error: {}.'.format(e))
             raise
-
     '''
     function: get_html 根据str header 生成 dict header
     @strsource:  str header
@@ -102,7 +98,6 @@ class CaptureRate(object):
     '''
     @retry(stop_max_attempt_number=3, wait_fixed=2000)
     def __urlOpenRetry(self, request):
-        # if isinstance(request, basestring):
         try:
             con = urllib2.urlopen(request, timeout=30)
             return con
@@ -111,7 +106,7 @@ class CaptureRate(object):
             raise
     '''
      function:获取CIMB SG 的汇率信息
-     @return: [[],[]] or raise
+     @return: [{},{}] or raise
      '''
     def getRateOfCimbSg(self):
         try:
@@ -127,37 +122,39 @@ class CaptureRate(object):
                     User-Agent:{}
                     '''
             src_header = HEADER.format(self.user_agent)
-            self.header = self.__getDict4str(src_header)
-            html = self.getHtml(rate_cimb_sg)
+            header = self.__getDict4str(src_header)
+            html = self.getHtml(rate_cimb_sg, header)
             soup = BeautifulSoup(html, 'lxml')
             trs = soup.find('table').find_all('tr')[1:]
             for tr in trs:
-                result = ['02', 'CIMB', 'SGD']
-                result.append(tr.find_all('td')[1].getText())
-                result.append(float(tr.find_all('td')[2].getText()))
-                result.append(float(tr.find_all('td')[2].getText()))
-                result.append(float(tr.find_all('td')[3].getText()))
-                result.append(float(tr.find_all('td')[4].getText()))
-                result.append(time.strftime('%Y%m%d%H%M%S', time.localtime(time.time())))
+                result = {}
+                result['EXCHANGE_TYPE'.lower()] = '02'
+                result['EXCHANGE_CHANNEL'.lower()] = 'CIMB'
+                result['FROM_CURRENCY'.lower()] = 'SGD'
+                result['TO_CURRENCY'.lower()] = tr.find_all('td')[1].getText()
+                result['SELL_TT'.lower()] = float(tr.find_all('td')[2].getText())
+                result['SELL_OD'.lower()] = float(tr.find_all('td')[2].getText())
+                result['BUY_TT'.lower()] = float(tr.find_all('td')[3].getText())
+                result['BUY_OD'.lower()] = float(tr.find_all('td')[4].getText())
+                result['CREATE_TIME'.lower()] = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
                 results.append(result)
             logger.info('results: {}'.format(results))
             return results
         except Exception, e:
             logger.error('getRateOfCimbSg error:{}'.format(e))
             raise
+
     '''
-     function:查询并入库CIMB SG 的汇率信息
-     @return: True or False or raise
-     '''
+    function:查询并入库CIMB SG 的汇率信息
+    @return: True or False or raise
+    '''
     def dealRateOfCimbSg(self):
         try:
             results = self.getRateOfCimbSg()
-            select_sql = 'SELECT ID FROM exchange_rate_raw WHERE EXCHANGE_TYPE="{}" AND EXCHANGE_CHANNEL="{}" AND FROM_CURRENCY="{}" AND TO_CURRENCY="{}" ORDER BY CREATE_TIME DESC '
-            return self.saveExchangeRate(select_sql, results)
+            return self.saveExchangeRate(results)
         except Exception, e:
             logger.error('dealRateOfCimbSg error:{}'.format(e))
             raise
-
     '''
      function: 分类原始数据。区分insert 还是 update
      @select_sql: select sql
@@ -192,31 +189,58 @@ class CaptureRate(object):
      @exchange_rates: 原始数据
      @return: True or False
      '''
-    def saveExchangeRate(self, select_sql, exchange_rates):
+    def saveExchangeRate(self, src_datas):
         try:
-            if not exchange_rates:
-                logger.error('not get exchange_rates to save')
+            result_insert, result_update = True, True
+            table = TABLE_NAME_RATE
+            select_sql = 'SELECT ID FROM exchange_rate_raw WHERE EXCHANGE_TYPE="{exchange_type}" AND EXCHANGE_CHANNEL="{exchange_channel}" \
+AND FROM_CURRENCY="{from_currency}" AND TO_CURRENCY="{to_currency}" ORDER BY CREATE_TIME DESC '
+            columns = ['EXCHANGE_TYPE', 'EXCHANGE_CHANNEL', 'FROM_CURRENCY', 'TO_CURRENCY',\
+                       'SELL_TT', 'SELL_OD', 'BUY_TT', 'BUY_OD', 'CREATE_TIME']
+            if not src_datas:
+                logger.error('not get datas to save')
                 return False
-            (insert_datas, update_datas) = self.__checkRateDatas(select_sql, exchange_rates)
+            (insert_datas, update_datas) = self.__checkDatas(select_sql, src_datas)
             if insert_datas:
+                operate_type = 'insert'
                 l = len(insert_datas)
-                self.insert += l
                 logger.info('len insert_datas: {}'.format(l))
-                insert_sql = 'INSERT INTO exchange_rate_raw(EXCHANGE_TYPE,EXCHANGE_CHANNEL,FROM_CURRENCY,TO_CURRENCY,SELL_TT,SELL_OD,BUY_TT,BUY_OD,CREATE_TIME) VALUES'
-                result_insert = self.mysql.insert_batch(insert_sql, insert_datas)
+                result_insert = self.mysql.insert_batch(operate_type, table, columns, insert_datas)
                 logger.info('result_insert: {}'.format(result_insert))
             if update_datas:
+                operate_type = 'replace'
                 l = len(update_datas)
-                self.update += l
                 logger.info('len update_datas: {}'.format(l))
-                update_sql = 'REPLACE INTO exchange_rate_raw(ID,EXCHANGE_TYPE,EXCHANGE_CHANNEL,FROM_CURRENCY,TO_CURRENCY,SELL_TT,SELL_OD,BUY_TT,BUY_OD,CREATE_TIME) VALUES'
-                result_update = self.mysql.insert_batch(update_sql, update_datas)
+                columns.insert(0, 'ID')
+                result_update = self.mysql.insert_batch(operate_type, table, columns, update_datas)
                 logger.info('result_update: {}'.format(result_update))
-            logger.info('insert: {}, update: {}'.format(self.insert, self.update))
-            return True
+            return result_insert and result_update
         except Exception, e:
             logger.error('saveExchangeRate error: {}.'.format(e))
             return False
+
+    def __checkDatas(self, select_sql, sourcedatas):
+        insert_datas=[]
+        update_datas=[]
+        for sourcedata in sourcedatas:
+            sql = select_sql.format(**sourcedata)
+            logger.debug('select sql: {}'.format(sql))
+            try:
+                result = self.mysql.sql_query(sql)
+                if not result:
+                    insert_datas.append(sourcedata)
+                else:
+                    if len(result) != 1:
+                        logger.error('__checkDatas get many lines:{}'.format(result))
+                        logger.error('select_sql: {}'.format(sql))
+                    sourcedata['ID'.lower()] = result[0].get('ID')
+                    update_datas.append(sourcedata)
+            except Exception, e:
+                logger.error('__checkDatas\'s error: {}.'.format(e))
+                logger.error('__checkDatas\'s sourcedata: {}.'.format(sourcedata))
+                continue
+        return (insert_datas,update_datas)
+
 def main():
     startTime = datetime.now()
     # objCrawlingProxy = CrawlingProxy()
@@ -226,10 +250,7 @@ def main():
     objCaptureRate = CaptureRate(useragent)
     # objCaptureRate.getRateOfCimbSg()
     objCaptureRate.dealRateOfCimbSg()
-
-
     endTime = datetime.now()
-
     print 'seconds', (endTime - startTime).seconds
 if __name__ == '__main__':
     main()
