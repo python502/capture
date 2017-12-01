@@ -70,23 +70,26 @@ class MysqldbOperate(object):
             self.conn.rollback()
             logger.error('sql_exec error:{}'.format(e))
             return False
+
     '''
-    function:insert_batch 批量插入数据#
-    @param insert_sql:string  'INSERT INTO mtable(field1, field2, field3...) VALUES' or 'REPLACE INTO mtable(field1, field2, field3...) VALUES'
-    @param datas:[[],[]]
+    function:insert_batch 批量insert or replace数据
+    @param operate_type:sql 操作 insert or replace
+    @param table:表名
+    @param columns:表的操作的列信息
+    @param datas:数据信息 [{},{}]
     @return '检索结果'
     '''
-        
-    def insert_batch(self,insert_sql,datas):
+    def insert_batch(self, operate_type, table, columns, datas):
+        exec_sql = '{} INTO {}({}) VALUES'.format(operate_type.upper(), table, ','.join(columns))
         batch_list = []
         counts = 0
         sql = ''
         try:
             for item in datas:
-                batch_list.append(self.__multipleRows(item))
+                batch_list.append(self.__multipleRows(columns, item))
                 try:
                     if len(batch_list) == MYSQL_BATCH_NUM:
-                        sql = "%s %s " % (insert_sql, ','.join(batch_list))
+                        sql = "%s %s " % (exec_sql, ','.join(batch_list))
                         logger.debug('sql:{}'.format(sql))
                         self.cur.execute(sql)
                         self.conn.commit()
@@ -98,11 +101,11 @@ class MysqldbOperate(object):
                     logger.error('e:{}'.format(e))
                     continue
             if len(batch_list):
-                sql = "%s %s " % (insert_sql, ','.join(batch_list))
+                sql = "%s %s " % (exec_sql, ','.join(batch_list))
                 self.cur.execute(sql)
                 self.conn.commit()
             counts += len(batch_list)
-            logger.info('finished {}: {}'.format(insert_sql[0], counts))
+            logger.info('finished {}: {}'.format(exec_sql[0], counts))
             if counts:
                 return True
             else:
@@ -112,13 +115,19 @@ class MysqldbOperate(object):
             logger.error('sql:{}'.format(sql))
             logger.error('e:{}'.format(e))
             return False
-    # 返回可用于multiple rows的sql拼装值
 
-    def __multipleRows(self,params):
+    '''
+    function: 返回可用于multiple rows的sql拼装值
+    @columns：list 表的列信息
+    @params：dict 每行的数据信息
+    @return: True or raise
+    '''
+    def __multipleRows(self, columns, params):
         try:
             ret = []
             # 根据不同值类型分别进行sql语法拼装
-            for param in params:
+            for column in columns:
+                param = params.get(column.lower())
                 if param == 0:
                     ret.append(str(param))
                     continue
@@ -127,8 +136,10 @@ class MysqldbOperate(object):
                     continue
                 if isinstance(param, (int, long, float, bool)):
                     ret.append(str(param))
-                elif isinstance(param, (str, unicode)):
-                    ret.append('"' + param.encode('utf8') + '"')
+                elif isinstance(param, str):
+                    ret.append('"' + param + '"')
+                elif isinstance(param, unicode):
+                        ret.append('"' + param.encode('utf8') + '"')
                 else:
                     logger.error('unsupport value: '.format(param))
             return '(' + ','.join(ret) + ')'
@@ -143,9 +154,13 @@ def main():
 def main1():
     DICT_MYSQL={'host':'127.0.0.1','user':'root','passwd':'111111','db':'capture','port':3306}
     omysql = MysqldbOperate(DICT_MYSQL)
-    sql = 'INSERT INTO website_servicepatent(metastasis_info, patent_id,create_date) VALUES'
-    datas=[[1,2,'2016-07-12 21:14:38'],[4,'','2016-07-12 21:14:38'],[1,2,'2016-07-12 21:14:38'],[4,5,u'\20142016-07-12 21:14:38555'],[1,'','2016-07-12 21:14:38'],[1,2,'2016-07-12 21:14:38']]
-    omysql.insert_batch(sql,datas)
+    columns = ['metastasis_info','patent_id','create_date']
+    type = 'insert'
+    table = 'website_servicepatent'
+
+
+    datas=[{'metastasis_info':1,'patent_id':2,'create_date':'2016-07-12 21:14:38'},{'metastasis_info':4,},{'metastasis_info':2,'create_date':'2016-07-12 21:14:38'},{'metastasis_info':4,'patent_id':5,'create_date':u'20142016-07-12 21:14:38555'}]
+    omysql.insert_batch(type,table,columns,datas)
 
 
 
@@ -156,4 +171,4 @@ def main2():
     data = ('1','d')
     omysql.sql_exec(sql , data)
 if __name__ == '__main__':
-    main2()
+    main1()

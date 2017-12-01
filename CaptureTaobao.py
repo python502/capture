@@ -184,7 +184,7 @@ class CaptureTaobao(object):
             for info in infos:
                 logger.debug('info: {}'.format(info))
                 result_department = []
-                result_department.append(info['title'])
+                result_department.append(info['title'].encode('utf-8'))
                 pattern = re.compile(u'[^\u4E00-\u9FA5]')
                 filtered_str = pattern.sub(r' ', info['href']).strip()
                 if filtered_str:
@@ -203,6 +203,16 @@ class CaptureTaobao(object):
             logger.error('html: {}'.format(html))
             raise
 
+    def __rm_duplicate(self, scr_datas, match):
+        goods = {}
+        repeat_num = 0
+        for data in scr_datas:
+            if goods.get(data[match]):
+                logger.debug('find repead data: {}'.format(data[match]))
+            else:
+                goods[data[match]] = data
+                repeat_num += 1
+        return [value for value in goods.itervalues()]
     '''
     function: 获取所有分类的商品信息
     @
@@ -210,31 +220,34 @@ class CaptureTaobao(object):
     '''
     def dealCategorys(self):
         try:
-            results = []
+            resultDatas = []
             departments = self.__get_department()
             logger.debug('departments: {}'.format(departments))
             for department in departments:
                 try:
                     result = self.dealCategory(department[0], department[1])
-                    results.append([department[0], result])
+                    resultDatas.extend(result)
                 except Exception, e:
                     logger.error('end do dealCategory error: {}'.format(e))
-                    logger.error('end category {} error'.format(department[0].encode('utf-8')))
+                    logger.error('end category {} error'.format(department[0]))
                     logger.error('end department {}'.format(department))
-                    results.append([department[0], False])
                     continue
-            logger.info('insert: {}, update: {}'.format(self.insert, self.update))
+            logger.info('all categorys get data: {}'.format(len(resultDatas)))
+            resultDatas = self.__rm_duplicate(resultDatas, 'PRODUCT_ID'.lower())
+            logger.info('After the data is repeated: {}'.format(len(resultDatas)))
+            if not resultDatas:
+                raise ValueError('dealCategorys get no resultDatas ')
+            return self.saveCategoryGoods(resultDatas)
             logger.info('end of crawler result:{}'.format(results))
-            # return self.saveCategoryGoods(results)
         except Exception, e:
             logger.error('dealCategorys error: {}'.format(e))
 
 
-    def __checkHomeDatas(self, select_sql, sourcedatas):
+    def __checkDatas(self, select_sql, sourcedatas):
         insert_datas=[]
         update_datas=[]
         for sourcedata in sourcedatas:
-            sql = select_sql.format(sourcedata[0], sourcedata[1])
+            sql = select_sql.format(**sourcedata)
             logger.debug('select sql: {}'.format(sql))
             try:
                 result = self.mysql.sql_query(sql)
@@ -244,43 +257,14 @@ class CaptureTaobao(object):
                     if len(result) != 1:
                         logger.error('checkHomeDatas get many lines:{}'.format(result))
                         logger.error('select_sql: {}'.format(sql))
-                    sourcedata.insert(0, result[0].get('ID'))
+                    sourcedata['ID'.lower()] = result[0].get('ID')
+                    sourcedata['STATUS'.lower()] = result[0].get('STATUS', '01')
                     update_datas.append(sourcedata)
             except Exception, e:
-                logger.error('checkHomeDatas\'s error: {}.'.format(e))
-                logger.error('checkHomeDatas\'s sourcedata: {}.'.format(sourcedata))
+                logger.error('__checkDatas\'s error: {}.'.format(e))
+                logger.error('__checkDatas\'s sourcedata: {}.'.format(sourcedata))
                 continue
         return (insert_datas,update_datas)
-
-    '''
-    function: 分类原始数据。区分insert 还是 update
-    @select_sql: select sql
-    @sourcedatas: 原始数据
-    @return: (insert_datas, update_datas)
-    '''
-    def __checkCategoryDatas(self, select_sql, sourcedatas):
-        insert_datas=[]
-        update_datas=[]
-        for sourcedata in sourcedatas:
-            sql = select_sql.format(sourcedata[0], sourcedata[1].encode('utf8') if isinstance(sourcedata[1], (str, unicode)) else sourcedata[1], sourcedata[3])
-            logger.debug('select sql: {}'.format(sql))
-            try:
-                result = self.mysql.sql_query(sql)
-                if not result:
-                    insert_datas.append(sourcedata)
-                    sourcedata.append('01')
-                else:
-                    if len(result) != 1:
-                        logger.error('checkCategoryDatas get many lines:{}'.format(result))
-                        logger.error('select_sql: {}'.format(sql))
-                    sourcedata.insert(0, result[0].get('ID'))
-                    sourcedata.append(result[0].get('STATUS'))
-                    update_datas.append(sourcedata)
-            except Exception, e:
-                logger.error('checkCategoryDatas\'s error: {}.'.format(e))
-                logger.error('checkCategoryDatas\'s sourcedata: {}.'.format(sourcedata))
-                continue
-        return (insert_datas, update_datas)
 
     '''
     function: 存储分类商品信息
@@ -289,28 +273,31 @@ class CaptureTaobao(object):
     '''
     def saveCategoryGoods(self, good_datas):
         try:
+            result_insert, result_update = True, True
+            table = TABLE_NAME_GOODS
+            columns = ['CHANNEL','KIND','SITE','PRODUCT_ID','LINK','MAIN_IMAGE','NAME','DETAIL_IMAGE','DESCRIPTION','Currency','AMOUNT','CREATE_TIME','DISPLAY_COUNT','STATUS']
             if not good_datas:
                 logger.error('not get datas to save')
                 return False
-            select_sql = 'SELECT ID,STATUS FROM market_product_raw WHERE CHANNEL="{}" and KIND="{}" AND PRODUCT_ID="{}" ORDER BY CREATE_TIME DESC '
-            (insert_datas, update_datas) = self.__checkCategoryDatas(select_sql, good_datas)
+            # select_sql = 'SELECT ID,STATUS FROM market_product_raw WHERE CHANNEL="{channel}" and KIND="{kind}" AND PRODUCT_ID="{product_id}" ORDER BY CREATE_TIME DESC '
+            select_sql = 'SELECT ID,STATUS FROM market_product_raw WHERE CHANNEL="{channel}" AND PRODUCT_ID="{product_id}" ORDER BY CREATE_TIME DESC '
+            (insert_datas, update_datas) = self.__checkDatas(select_sql, good_datas)
             if insert_datas:
+                operate_type = 'insert'
                 l = len(insert_datas)
                 self.insert += l
                 logger.info('len insert_datas: {}'.format(l))
-                insert_sql = 'INSERT INTO {}(CHANNEL,KIND,SITE,PRODUCT_ID,LINK,MAIN_IMAGE,NAME,DETAIL_IMAGE,DESCRIPTION,Currency,AMOUNT,CREATE_TIME,DISPLAY_COUNT,STATUS) VALUES'.format(
-                    TABLE_NAME_GOODS)
-                result_insert = self.mysql.insert_batch(insert_sql, insert_datas)
+                result_insert = self.mysql.insert_batch(operate_type, table, columns, insert_datas)
                 logger.info('result_insert: {}'.format(result_insert))
             if update_datas:
+                operate_type = 'replace'
                 l = len(update_datas)
                 self.update += l
                 logger.info('len update_datas: {}'.format(l))
-                update_sql = 'REPLACE INTO {}(ID,CHANNEL,KIND,SITE,PRODUCT_ID,LINK,MAIN_IMAGE,NAME,DETAIL_IMAGE,DESCRIPTION,Currency,AMOUNT,CREATE_TIME,DISPLAY_COUNT,STATUS) VALUES'.format(
-                    TABLE_NAME_GOODS)
-                result_update = self.mysql.insert_batch(update_sql, update_datas)
+                columns.insert(0, 'ID')
+                result_update = self.mysql.insert_batch(operate_type, table, columns, update_datas)
                 logger.info('result_update: {}'.format(result_update))
-            return True
+            return result_insert and result_update
         except Exception, e:
             logger.error('saveCategoryGoods error: {}.'.format(e))
             return False
@@ -343,56 +330,61 @@ class CaptureTaobao(object):
             #     #会出现第一页只能加载36条记录的情况
             #     raise ValueError('get goods_infos{} not equal hope num{}'.format(len_goods, num))
             #只取前44条记录，后4条有可能和下一页重复
-            if len_goods == 48:
-                goods_infos = goods_infos[:44]
+            # if len_goods == 48:
+            #     goods_infos = goods_infos[:44]
             for goods_info in goods_infos:
-                resultData = [self.Channel, category, 's.taobao']
+                resultData = {}
+                resultData['CHANNEL'.lower()] = self.Channel
+                resultData['KIND'.lower()] = category
+                resultData['SITE'.lower()] = 's.taobao'
+                resultData['STATUS'.lower()] = '01'
                 try:
                     good_id = goods_info.find_all('a', {'class':"pic-link J_ClickStat J_ItemPicA"})[0].attrs['data-nid']
-                    resultData.append(good_id)
+                    resultData['PRODUCT_ID'.lower()] = good_id
                     good_url = self.good_url.format(good_id)
-                    resultData.append(good_url)
-                    good_img_big = goods_info.find_all('img', {'class':"J_ItemPic img"})[0].attrs['data-src']
-                    resultData.append(self.http_url.format(good_img_big))
-                    good_title = goods_info.find_all('img', {'class':"J_ItemPic img"})[0].attrs['alt']
-                    resultData.append(good_title)
+                    resultData['LINK'.lower()] = good_url
+                    good_img_big = goods_info.find_all('img', {'class': "J_ItemPic img"})[0].attrs['data-src']
+                    resultData['MAIN_IMAGE'.lower()] = self.http_url.format(good_img_big)
+                    good_title = goods_info.find_all('img', {'class': "J_ItemPic img"})[0].attrs['alt']
+                    resultData['NAME'.lower()] = good_title
                     try:
                         good_img_small = goods_info.find_all('img', {'class': "J_ItemPic img"})[0].get('src') if goods_info.find_all('img', {'class': "J_ItemPic img"})[0].get('src') else goods_info.find_all('img', {'class': "J_ItemPic img"})[0].get('data-ks-lazyload')
-                        resultData.append(self.http_url.format(good_img_small))
+                        resultData['DETAIL_IMAGE'.lower()] = self.http_url.format(good_img_small)
                     except Exception, e:
                         logger.error('good_img_small error: {}'.format(e))
                         logger.error('goods_info: {}'.format(goods_info))
-                        resultData.append('')
                     try:
                         good_description = goods_info.find_all('a', {'class':"J_ClickStat"})[1].getText().strip().strip('\n')
-                        resultData.append(good_description)
+                        resultData['DESCRIPTION'.lower()] = good_description
                     except Exception, e:
                         logger.error('good_description error: {}'.format(e))
                         logger.error('goods_info: {}'.format(goods_info))
-                        resultData.append('')
+
                     try:
                         good_maxDealPrice = goods_info.find_all('div', {'class':"price g_price g_price-highlight"})[0].getText().strip('\n').strip('')
                         currency = 'CNY'if good_maxDealPrice.encode('utf-8').startswith('¥') else 'USD'
                         pattern = re.compile(r'\d+.\d+', re.M)
                         good_maxDealPrice = float(pattern.findall(good_maxDealPrice)[0])
-                        resultData.append(currency)
-                        resultData.append(good_maxDealPrice)
+
+                        resultData['Currency'.lower()] = currency
+                        resultData['AMOUNT'.lower()] = good_maxDealPrice
                     except Exception, e:
                         logger.error('good_maxDealPrice error: {}'.format(e))
                         logger.error('goods_info: {}'.format(goods_info))
-                        resultData.append('USD')
-                        resultData.append(0)
+                        resultData['Currency'.lower()] = 'USD'
+                        resultData['AMOUNT'.lower()] = 0
 
-                    resultData.append(time.strftime('%Y%m%d%H%M%S', time.localtime(time.time())))
+                    resultData['CREATE_TIME'.lower()] = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
+
                     try:
                         good_dealcnt = goods_info.find_all('div', {'class':"deal-cnt"})[0].getText().strip('\n').strip('')
                         pattern = re.compile(r'^\d+', re.M)
                         good_dealcnt = int(pattern.findall(good_dealcnt)[0])
-                        resultData.append(good_dealcnt)
+                        resultData['DISPLAY_COUNT'.lower()] = good_dealcnt
                     except Exception, e:
                         logger.error('good_dealcnt error: {}'.format(e))
                         logger.error('goods_info: {}'.format(goods_info))
-                        resultData.append(0)
+                        resultData['DISPLAY_COUNT'.lower()] = 0
                     result_datas.append(resultData)
                 except Exception, e:
                     logger.error('error: {}'.format(e))
@@ -401,7 +393,7 @@ class CaptureTaobao(object):
             if len(goods_infos) != len(result_datas) or not result_datas:
                 logger.error('len goods_infos: {},len result_datas: {}'.format(goods_infos, result_datas))
                 logger.error('result_datas: {}'.format(result_datas))
-                raise ValueError
+                raise ValueError('get result_datas error')
             return result_datas
         except Exception, e:
             logger.error('getGoodInfos error:{},retry it'.format(e))
@@ -430,22 +422,13 @@ class CaptureTaobao(object):
                 else:
                     num = page_size
                 page_url = '{}&s={}'.format(firsturl, page_size*i)
+                logger.info('getGoodInfos category:{} page{} begin'.format(category, i+1))
                 page_results = self.getGoodInfos(category, page_url, num)
                 goods_infos.extend(page_results)
-            # #去重复  测试发现可以不用
-            # goods ={}
-            # for info in goods_infos:
-            #     if goods.get(info[4]):
-            #         logger.error('get duplicate data')
-            #         logger.error('info: {}'.format(info))
-            #         logger.error('info stored: {}'.format(goods.get(info[4])))
-            #     else:
-            #         goods[info[4]] = info
-            # goods_infos = [value for value in goods.itervalues()]
-            logger.info('dealCategory category:{} len goods_infos: {}'.format(category.encode('utf-8'), len(goods_infos)))
-            return self.saveCategoryGoods(goods_infos) if goods_infos else False
+            logger.info('dealCategory category:{} len goods_infos: {}'.format(category, len(goods_infos)))
+            return goods_infos
         except Exception, e:
-            logger.error('dealCategory {} error:{}'.format(category.encode('utf-8'), e))
+            logger.error('dealCategory {} error:{}'.format(category, e))
             raise
 
 
@@ -462,7 +445,7 @@ class CaptureTaobao(object):
 
 
     '''
-    function: 查询并存储首页滑动栏信息
+    function: 获取并存储首页滚动栏的商品信息
     @return: True or Raise
     '''
     def dealHomeGoods(self):
@@ -472,8 +455,10 @@ class CaptureTaobao(object):
             soup = BeautifulSoup(html, 'lxml')
             recommends = soup.find('div', {'id': "banner-slider", 'class': "image-slider"}).find_all('a',{'class':"tab-pannel slider-panel item"})
             for recommend in recommends:
-                resultData = [self.Channel]
-                resultData.append(recommend.attrs['href'])
+                resultData = {}
+                resultData['CHANNEL'.lower()] = self.Channel
+                resultData['STATUS'.lower()] = '01'
+                resultData['LINK'.lower()] = recommend.attrs['href']
                 try:
                     img = recommend.find('img').attrs['data-ks-lazyload']
                 except Exception, e:
@@ -481,32 +466,35 @@ class CaptureTaobao(object):
                     img = recommend.find('img').attrs['src']
                 if not img.startswith('https'):
                     img = self.http_url.format(img)
-                resultData.append(img)
-                resultData.append(time.strftime('%Y%m%d%H%M%S', time.localtime(time.time())))
+                resultData['MAIN_IMAGE'.lower()] = img
+                resultData['CREATE_TIME'.lower()] = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
                 good_name = recommend.attrs['data-color']
                 goods[good_name] = resultData
             resultDatas = [value for value in goods.itervalues()]
             if len(resultDatas) == 0:
                 logger.error('driver.page_source: {}'.format(html))
                 raise ValueError('not get valid data')
-            select_sql = 'SELECT ID FROM market_banner_raw WHERE CHANNEL="{}" and LINK="{}" ORDER BY CREATE_TIME DESC '
-            (insert_datas, update_datas) = self.__checkHomeDatas(select_sql, resultDatas)
-            column = 'CHANNEL, LINK, MAIN_IMAGE, CREATE_TIME'
+            select_sql = 'SELECT ID,STATUS FROM market_banner_raw WHERE CHANNEL="{channel}" and LINK="{link}" ORDER BY CREATE_TIME DESC '
+            (insert_datas, update_datas) = self.__checkDatas(select_sql, resultDatas)
+            columns = ['CHANNEL', 'LINK', 'MAIN_IMAGE', 'CREATE_TIME', 'STATUS']
+            table = TABLE_NAME_HOME
+            result_insert, result_update = True, True
             if insert_datas:
+                operate_type = 'insert'
                 length = len(insert_datas)
                 self.insert += length
                 logger.info('len insert_datas: {}'.format(length))
-                insert_sql = 'INSERT INTO {}({}) VALUES'.format(TABLE_NAME_HOME, column)
-                result_insert = self.mysql.insert_batch(insert_sql, insert_datas)
+                result_insert = self.mysql.insert_batch(operate_type, table, columns, insert_datas)
                 logger.info('result_insert: {}'.format(result_insert))
             if update_datas:
+                operate_type = 'replace'
                 length = len(update_datas)
                 self.update += length
                 logger.info('len update_datas: {}'.format(length))
-                update_sql = 'REPLACE INTO {}(ID,{}) VALUES'.format(TABLE_NAME_HOME, column)
-                result_update = self.mysql.insert_batch(update_sql, update_datas)
+                columns.insert(0, 'ID')
+                result_update = self.mysql.insert_batch(operate_type, table, columns, update_datas)
                 logger.info('result_update: {}'.format(result_update))
-            return True
+            return result_insert and result_update
         except Exception, e:
             logger.error('dealHomeGoods error:{}'.format( e))
             raise
@@ -526,7 +514,7 @@ def main():
     objCaptureTaobao.dealCategorys()
 
     # 查询并入库首页推荐商品信息
-    # objCaptureTaobao.dealHomeGoods()
+    objCaptureTaobao.dealHomeGoods()
 
     #查询商品总信息 例如总页数 总条数
     # objCaptureTaobao.getPageInfos(u'https://s.taobao.com/search?spm=a21wu.241046-cn.6977698868.5.2816e72eg2pkH9&q=%E5%A5%B3%E8%A3%85&acm=lb-zebra-241046-2058600.1003.4.1797247&scm=1003.4.lb-zebra-241046-2058600.OTHER_14950676920071_1797247')
@@ -540,7 +528,7 @@ def main():
     # print objCaptureTaobao.getHtml(u'https://s.taobao.com/search?spm=a21wu.241046-cn.6977698868.5.2816e72eg2pkH9&q=%E5%A5%B3%E8%A3%85&acm=lb-zebra-241046-2058600.1003.4.1797247&scm=1003.4.lb-zebra-241046-2058600.OTHER_14950676920071_1797247')
     # print objCaptureTaobao.getHtml('https://world.taobao.com/')
     # 入库商品信息
-    # objCaptureTaobao.saveCategoryGoods([['taobao', u'\u5973\u88c5\u7cbe\u54c1', 's.taobao', '01', '544980174926', 'https://detail.tmall.com/item.htm?id=544980174926', u'\u6625\u79cb\u65b0\u6b3e\u4e00\u5b57\u9886\u9488\u7ec7\u886b\u957f\u8896\u77ed\u6b3e\u7d27\u8eab\u6bdb\u8863\u5973', 'https://detail.tmall.com/item.htm?id=//g-search1.alicdn.com/img/bao/uploaded/i4/imgextra/i4/1748305007546288692/TB25MFUemFjpuFjSszhXXaBuVXa_!!0-saturn_solar.jpg_180x180.jpg', 'https://detail.tmall.com/item.htm?id=//g-search1.alicdn.com/img/bao/uploaded/i4/imgextra/i4/1748305007546288692/TB25MFUemFjpuFjSszhXXaBuVXa_!!0-saturn_solar.jpg_180x180.jpg', u'\u6625\u79cb\u65b0\u6b3e\u4e00\u5b57\u9886\u9488\u7ec7\u886b\u97e9\u7248\u5973\u88c5\u4fee\u8eab\u6253\u5e95\u886b\u957f\u8896\u77ed\u6b3e\u7d27\u8eab\u6bdb\u8863\u5973\u5957\u5934', 'CNY', 59.0, time.strftime('%Y%m%d%H%M%S', time.localtime(time.time())),5037]])
+    objCaptureTaobao.saveCategoryGoods([{'status': '01', 'kind': '\xe5\xa5\xb3\xe8\xa3\x85\xe7\xb2\xbe\xe5\x93\x81', 'main_image': 'https://g-search1.alicdn.com/img/bao/uploaded/i4/imgextra/i2/96654238/TB2sKS2afal9eJjSZFzXXaITVXa_!!0-saturn_solar.jpg', 'product_id': '560327725588', 'description': u'\u534a\u9ad8\u9886\u9488\u7ec7\u6253\u5e95\u886b\u957f\u8896\u5957\u5934\u6bdb\u8863\u5973\u79cb\u51ac\u88c5\u65b0\u6b3e\u97e9\u7248\u5bbd\u677e\u767e\u642d\u77ed\u6b3e\u7ebf\u8863', 'site': 's.taobao', 'currency': 'CNY', 'amount': 49.8, 'create_time': '20171130205215', 'link': 'https://detail.tmall.com/item.htm?id=560327725588', 'detail_image': 'https://g-search1.alicdn.com/img/bao/uploaded/i4/imgextra/i2/96654238/TB2sKS2afal9eJjSZFzXXaITVXa_!!0-saturn_solar.jpg_180x180.jpg', 'display_count': 39201, 'channel': 'taobao', 'name': u'\u534a\u9ad8\u9886\u957f\u8896\u9488\u7ec7\u6253\u5e95\u886b\u5bbd\u677e\u6bdb\u8863\u5957\u5934\u77ed\u6b3e\u767e\u642d'}])
     endTime = datetime.now()
     print 'seconds', (endTime - startTime).seconds
 if __name__ == '__main__':
