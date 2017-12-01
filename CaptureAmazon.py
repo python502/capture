@@ -23,6 +23,7 @@ import cookielib
 import json
 import time
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+import configuration
 from selenium import webdriver
 from CrawlingProxy import CrawlingProxy,useragent
 from MysqldbOperate import MysqldbOperate
@@ -442,11 +443,12 @@ class CaptureAmazon(object):
         header = self.__getDict4str(HEADER.format(useragent))
         html = self.getHtml(img_url, header)
         # img_name = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'anazon_verify.jpg')
-        img_name = os.path.join(os.path.dirname(os.path.abspath(__file__)),os.path.basename(img_url))
+        img_name = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.path.basename(img_url))
         with open(img_name, 'wb') as f:
             f.write(html)
         im = Image.open(img_name)
         verify_code = image_to_string(im).strip()
+        os.remove(img_name)
         return verify_code
 
     '''
@@ -477,10 +479,9 @@ class CaptureAmazon(object):
                     logger.info('Need check verify code !')
                     verify_image_url = driver.find_element_by_xpath('/html/body/div/div[1]/div[3]/div/div/form/div[1]/div/div/div[1]/img').get_attribute('src').strip()
                     logger.info('verify image url: {}'.format(verify_image_url))
-                    select_sql = 'select VERIFY_CODE from {} where IMAGE_URL="{}"'.format(TABLE_NAME_VERIFY, verify_image_url)
-                    result = self.mysql.sql_query(select_sql)
+                    result = configuration.get_value('VERIFY_CODE', os.path.basename(verify_image_url))
                     if result:
-                        verify_code = result[0].get('VERIFY_CODE')
+                        verify_code = result
                     else:
                         verify_code = self.get_verify_code(verify_image_url)
                         if len(verify_code) != 6 or not re.match('^[A-Z]+$', verify_code):
@@ -497,14 +498,8 @@ class CaptureAmazon(object):
                     submit = driver.find_element_by_xpath("/html/body/div/div[1]/div[3]/div/div/form/div[2]/div/span/span/button")
                     submit.submit()
                 else:
-                    try:
-                        if verify_image_url and verify_code:
-                            insert_sql = 'insert into {} (IMAGE_URL, VERIFY_CODE) VALUES ("{}","{}")'. \
-                                format(TABLE_NAME_VERIFY, verify_image_url, verify_code)
-                            logger.debug('insert_sql: {}'.format(insert_sql))
-                            self.mysql.sql_exec(insert_sql)
-                    except Exception,e:
-                        logger.error('insert verify code error: {}'.format(e))
+                    if verify_image_url and verify_code:
+                        configuration.set_value('VERIFY_CODE', os.path.basename(verify_image_url), verify_code)
                     break
             #设置定位元素时的超时时间
             driver.implicitly_wait(10)
@@ -586,7 +581,7 @@ def main():
     # objCaptureAmazon.get_department()
     # 查询并入库所有类别的商品信息
 
-    objCaptureAmazon.dealCategorys()
+    # objCaptureAmazon.dealCategorys()
     # 查询并入库首页推荐商品信息
     objCaptureAmazon.dealHomeGoods()
     # 查询dealID的商品信息
