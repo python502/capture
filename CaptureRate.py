@@ -12,98 +12,24 @@ Created on 2016年6月4日
 
 @author: Administrator
 '''
-import random
-import urllib2
 
-
-import zlib
-import cookielib
+from CaptureBase import CaptureBase
 from CrawlingProxy import CrawlingProxy,useragent
-from MysqldbOperate import MysqldbOperate
 from logger import logger
 from bs4 import BeautifulSoup
-from retrying import retry
 from datetime import datetime
 import time
-# DICT_MYSQL = {'host': '127.0.0.1', 'user': 'root', 'passwd': '111111', 'db': 'capture', 'port': 3306}
-DICT_MYSQL = {'host': '118.193.21.62', 'user': 'root', 'passwd': 'Avazu#2017', 'db': 'avazu_opay', 'port': 3306}
 TABLE_NAME_RATE = 'EXCHANGE_RATE_RAW'
-'''
-classdocs
-'''
-class CaptureRate(object):
+class CaptureRate(CaptureBase):
     def __init__(self, user_agent, proxy_ip=None):
         '''
         Constructor
         '''
-        # Cookie and Referer is'not necessary
-
-        self.user_agent = user_agent
-        self.mysql = MysqldbOperate(DICT_MYSQL)
-        #获得一个cookieJar实例
-        self.cj = cookielib.CookieJar()
-        #cookieJar作为参数，获得一个opener的实例
-        opener=urllib2.build_opener(urllib2.HTTPCookieProcessor(self.cj))
-        urllib2.install_opener(opener)
-
-        proxy = urllib2.ProxyHandler(proxy_ip)
-        opener = urllib2.build_opener(proxy)
-        urllib2.install_opener(opener)
+        super(CaptureRate, self).__init__(user_agent, proxy_ip)
 
     def __del__(self):
-        if self.mysql:
-            del self.mysql
-    '''
-    function: getHtml 根据url获取页面的html
-    @url:  url
-    @return: html
-    '''
-    def getHtml(self, url, header):
-        HEADER = header
-        try:
-            req = urllib2.Request(url=url, headers=HEADER)
-            con = self.__urlOpenRetry(req)
-            if 200 == con.getcode():
-                doc = con.read()
-                if con.headers.get('Content-Encoding'):
-                    doc = zlib.decompress(doc, 16+zlib.MAX_WBITS)
-                con.close()
-                logger.debug('getHtml: url:{} getcode is 200'.format(url))
-                return doc
-            else:
-                logger.debug('getHtml: url:{} getcode isn\'t 200,{}'.format(url, con.getcode()))
-                raise ValueError()
-        except Exception,e:
-            logger.error('getHtml error: {}.'.format(e))
-            raise
-    '''
-    function: get_html 根据str header 生成 dict header
-    @strsource:  str header
-    @return: dict header
-    '''
-    def __getDict4str(self, strsource):
-        outdict = {}
-        lists = strsource.split('\n')
-        for list in lists:
-            list = list.strip()
-            if list:
-                strbegin = list.find(':')
-                outdict[list[:strbegin]] = list[strbegin+1:] if strbegin != len(list) else ''
-        return outdict
+        super(CaptureRate, self).__del__()
 
-    '''
-    function: urlopen 失败时进行retry, retry3次 间隔2秒
-    @request: request
-    @return: con or exception
-    '''
-    @retry(stop_max_attempt_number=3, wait_fixed=2000)
-    def __urlOpenRetry(self, request):
-        try:
-            con = urllib2.urlopen(request, timeout=30)
-            return con
-        except Exception, e:
-            logger.error('urlopen error retry.e: {}'.format(e))
-            raise
     '''
      function:获取CIMB SG 的汇率信息
      @return: [{},{}] or raise
@@ -122,7 +48,7 @@ class CaptureRate(object):
                     User-Agent:{}
                     '''
             src_header = HEADER.format(self.user_agent)
-            header = self.__getDict4str(src_header)
+            header = self._getDict4str(src_header)
             html = self.getHtml(rate_cimb_sg, header)
             soup = BeautifulSoup(html, 'lxml')
             trs = soup.find('table').find_all('tr')[1:]
@@ -155,33 +81,6 @@ class CaptureRate(object):
         except Exception, e:
             logger.error('dealRateOfCimbSg error:{}'.format(e))
             raise
-    '''
-     function: 分类原始数据。区分insert 还是 update
-     @select_sql: select sql
-     @sourcedatas: 原始数据
-     @return: (insert_datas, update_datas)
-     '''
-    def __checkRateDatas(self, select_sql, sourcedatas):
-        insert_datas = []
-        update_datas = []
-        for sourcedata in sourcedatas:
-            sql = select_sql.format(sourcedata[0], sourcedata[1], sourcedata[2], sourcedata[3])
-            logger.debug('select sql: {}'.format(sql))
-            try:
-                result = self.mysql.sql_query(sql)
-                if not result:
-                    insert_datas.append(sourcedata)
-                else:
-                    if len(result) != 1:
-                        logger.error('checkRateDatas get many lines:{}'.format(result))
-                        logger.error('select_sql: {}'.format(sql))
-                    sourcedata.insert(0, result[0].get('ID'))
-                    update_datas.append(sourcedata)
-            except Exception, e:
-                logger.error('__checkRateDatas\'s error: {}.'.format(e))
-                logger.error('__checkRateDatas\'s sourcedata: {}.'.format(sourcedata))
-                continue
-        return (insert_datas, update_datas)
 
     '''
      function: 将查询到的汇率信息存储进数据库，存在的replace,不存在的insert
@@ -200,7 +99,7 @@ AND FROM_CURRENCY="{from_currency}" AND TO_CURRENCY="{to_currency}" ORDER BY CRE
             if not src_datas:
                 logger.error('not get datas to save')
                 return False
-            (insert_datas, update_datas) = self.__checkDatas(select_sql, src_datas)
+            (insert_datas, update_datas) = self._checkDatas(select_sql, src_datas, ['ID'])
             if insert_datas:
                 operate_type = 'insert'
                 l = len(insert_datas)
@@ -218,28 +117,6 @@ AND FROM_CURRENCY="{from_currency}" AND TO_CURRENCY="{to_currency}" ORDER BY CRE
         except Exception, e:
             logger.error('saveExchangeRate error: {}.'.format(e))
             return False
-
-    def __checkDatas(self, select_sql, sourcedatas):
-        insert_datas=[]
-        update_datas=[]
-        for sourcedata in sourcedatas:
-            sql = select_sql.format(**sourcedata)
-            logger.debug('select sql: {}'.format(sql))
-            try:
-                result = self.mysql.sql_query(sql)
-                if not result:
-                    insert_datas.append(sourcedata)
-                else:
-                    if len(result) != 1:
-                        logger.error('__checkDatas get many lines:{}'.format(result))
-                        logger.error('select_sql: {}'.format(sql))
-                    sourcedata['ID'.lower()] = result[0].get('ID')
-                    update_datas.append(sourcedata)
-            except Exception, e:
-                logger.error('__checkDatas\'s error: {}.'.format(e))
-                logger.error('__checkDatas\'s sourcedata: {}.'.format(sourcedata))
-                continue
-        return (insert_datas,update_datas)
 
 def main():
     startTime = datetime.now()

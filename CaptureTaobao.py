@@ -12,40 +12,31 @@ Created on 2016年6月4日
 
 @author: Administrator
 '''
-import random
-import urllib2
 import os
 import urllib
-import zlib
 import re
-import cookielib
 import json
 import time
-from urllib import urlencode
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium import webdriver
 from CrawlingProxy import CrawlingProxy,useragent
-from MysqldbOperate import MysqldbOperate
 from logger import logger
 from bs4 import BeautifulSoup
 from retrying import retry
 from datetime import datetime
-from urlparse import urljoin
+from CaptureBase import CaptureBase
 
-DICT_MYSQL = {'host': '127.0.0.1', 'user': 'root', 'passwd': '111111', 'db': 'capture', 'port': 3306}
-# DICT_MYSQL = {'host': '118.193.21.62', 'user': 'root', 'passwd': 'Avazu#2017', 'db': 'avazu_opay', 'port': 3306}
 TABLE_NAME_GOODS = 'market_product_raw'
 TABLE_NAME_HOME = 'market_banner_raw'
-TABLE_NAME_VERIFY = 'market_verify_raw'
 '''
 classdocs
 '''
-class CaptureTaobao(object):
+class CaptureTaobao(CaptureBase):
     phantomjs_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'phantomjs.exe')
     home_url = 'https://world.taobao.com/'
     good_url = 'https://detail.tmall.com/item.htm?id={}'
     http_url = 'https:{}'
-    User_Agent = '''
+    HEADER = '''
             scheme:https
             accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8
             accept-encoding:gzip, deflate, br
@@ -55,30 +46,16 @@ class CaptureTaobao(object):
             User-Agent:{}
             '''
     Channel = 'taobao'
-
     def __init__(self, user_agent, proxy_ip=None):
         '''
         Constructor
         '''
-        # Cookie and Referer is'not necessary
-        self.result_url = []
-        self.user_agent = user_agent
+        super(CaptureTaobao, self).__init__(user_agent, proxy_ip)
         self.get_page = 3
-        src_header = self.User_Agent.format(self.user_agent)
-        self.header = self.__getDict4str(src_header)
-        self.mysql = MysqldbOperate(DICT_MYSQL)
-        #获得一个cookieJar实例
-        self.cj = cookielib.CookieJar()
-        #cookieJar作为参数，获得一个opener的实例
-        opener=urllib2.build_opener(urllib2.HTTPCookieProcessor(self.cj))
-        urllib2.install_opener(opener)
+        self.header = self._getDict4str(self.HEADER.format(self.user_agent))
 
-        proxy = urllib2.ProxyHandler(proxy_ip)
-        opener = urllib2.build_opener(proxy)
-        urllib2.install_opener(opener)
     def __del__(self):
-        if self.mysql:
-            del self.mysql
+        super(CaptureTaobao, self).__del__()
 
     @retry(stop_max_attempt_number=3, wait_fixed=2000)
     def getHtmlselenium(self, url):
@@ -89,7 +66,6 @@ class CaptureTaobao(object):
             # cap = DesiredCapabilities.PHANTOMJS.copy()
             # for key, value in self.header.items():
             #     cap['phantomjs.page.customHeaders.{}'.format(key)] = value
-
             driver = webdriver.PhantomJS(executable_path=self.phantomjs_path)
             #加载页面的超时时间
             driver.set_page_load_timeout(60)
@@ -104,62 +80,6 @@ class CaptureTaobao(object):
         finally:
             if driver:
                 driver.quit()
-    '''
-    function: getHtml 根据url获取页面的html
-    @url:  url
-    @return: html
-    '''
-    @retry(stop_max_attempt_number=3, wait_fixed=2000)
-    def getHtml(self, url):
-        HEADER = self.header
-        try:
-            req = urllib2.Request(url=url, headers=HEADER)
-            con = self.__urlOpenRetry(req)
-            if 200 == con.getcode():
-                doc = con.read()
-                if con.headers.get('Content-Encoding'):
-                    doc = zlib.decompress(doc, 16+zlib.MAX_WBITS)
-                con.close()
-                logger.debug('getHtml: url:{} getcode is 200'.format(url))
-                return doc
-            else:
-                logger.debug('getHtml: url:{} getcode isn\'t 200,{}'.format(url, con.getcode()))
-                raise ValueError()
-        except Exception,e:
-            logger.error('getHtml error: {}.'.format(e))
-            raise
-
-    '''
-    function: get_html 根据str header 生成 dict header
-    @strsource:  str header
-    @return: dict header
-    '''
-    def __getDict4str(self, strsource):
-        outdict = {}
-        lists = strsource.split('\n')
-        for list in lists:
-            list = list.strip()
-            if list:
-                strbegin = list.find(':')
-                outdict[list[:strbegin]] = list[strbegin+1:] if strbegin != len(list) else ''
-        return outdict
-
-    '''
-    function: urlopen 失败时进行retry, retry3次 间隔2秒
-    @request: request
-    @return: con or exception
-    '''
-    @retry(stop_max_attempt_number=3, wait_fixed=2000)
-    def __urlOpenRetry(self, request):
-        # if isinstance(request, basestring):
-        try:
-            con = urllib2.urlopen(request, timeout=10)
-            return con
-        except Exception, e:
-            logger.error('urlopen error retry.e: {}'.format(e))
-            raise
-
-
 
     def get_department(self):
         print '*'*40
@@ -175,7 +95,7 @@ class CaptureTaobao(object):
         try:
             format_url = 'https:{}&sort=renqi-desc'
             result_departments = []
-            html = self.getHtml(self.home_url)
+            html = self.getHtml(self.home_url, self.header)
             pattern = re.compile('<script class="J_ContextData" type="text/template">(.*?)</script>', re.S)
             infos = pattern.findall(html)
             infos = json.loads(infos[0].strip())['category']
@@ -201,16 +121,6 @@ class CaptureTaobao(object):
             logger.error('html: {}'.format(html))
             raise
 
-    def __rm_duplicate(self, scr_datas, match):
-        goods = {}
-        repeat_num = 0
-        for data in scr_datas:
-            if goods.get(data[match]):
-                logger.debug('find repead data: {}'.format(data[match]))
-            else:
-                goods[data[match]] = data
-                repeat_num += 1
-        return [value for value in goods.itervalues()]
     '''
     function: 获取所有分类的商品信息
     @
@@ -231,7 +141,7 @@ class CaptureTaobao(object):
                     logger.error('end department {}'.format(department))
                     continue
             logger.info('all categorys get data: {}'.format(len(resultDatas)))
-            resultDatas = self.__rm_duplicate(resultDatas, 'PRODUCT_ID'.lower())
+            resultDatas = self._rm_duplicate(resultDatas, 'PRODUCT_ID'.lower())
             logger.info('After the data is repeated: {}'.format(len(resultDatas)))
             if not resultDatas:
                 raise ValueError('dealCategorys get no resultDatas ')
@@ -240,29 +150,6 @@ class CaptureTaobao(object):
         except Exception, e:
             logger.error('dealCategorys error: {}'.format(e))
 
-
-    def __checkDatas(self, select_sql, sourcedatas):
-        insert_datas=[]
-        update_datas=[]
-        for sourcedata in sourcedatas:
-            sql = select_sql.format(**sourcedata)
-            logger.debug('select sql: {}'.format(sql))
-            try:
-                result = self.mysql.sql_query(sql)
-                if not result:
-                    insert_datas.append(sourcedata)
-                else:
-                    if len(result) != 1:
-                        logger.error('__checkDatas get many lines:{}'.format(result))
-                        logger.error('select_sql: {}'.format(sql))
-                    sourcedata['ID'.lower()] = result[0].get('ID')
-                    sourcedata['STATUS'.lower()] = result[0].get('STATUS', '01')
-                    update_datas.append(sourcedata)
-            except Exception, e:
-                logger.error('__checkDatas\'s error: {}.'.format(e))
-                logger.error('__checkDatas\'s sourcedata: {}.'.format(sourcedata))
-                continue
-        return (insert_datas,update_datas)
 
     '''
     function: 存储分类商品信息
@@ -279,7 +166,7 @@ class CaptureTaobao(object):
                 return False
             # select_sql = 'SELECT ID,STATUS FROM market_product_raw WHERE CHANNEL="{channel}" and KIND="{kind}" AND PRODUCT_ID="{product_id}" ORDER BY CREATE_TIME DESC '
             select_sql = 'SELECT ID,STATUS FROM market_product_raw WHERE CHANNEL="{channel}" AND PRODUCT_ID="{product_id}" ORDER BY CREATE_TIME DESC '
-            (insert_datas, update_datas) = self.__checkDatas(select_sql, good_datas)
+            (insert_datas, update_datas) = self._checkDatas(select_sql, good_datas, ['ID', 'STATUS'])
             if insert_datas:
                 operate_type = 'insert'
                 l = len(insert_datas)
@@ -433,7 +320,7 @@ class CaptureTaobao(object):
     @return: dict or None
     '''
     def getPageInfos(self, good_url):
-        html = self.getHtml(good_url)
+        html = self.getHtml(good_url, self.header)
         pattern = re.compile(r'"pager":\{"pageSize":\d+,"totalPage":\d+,"currentPage":\d+,"totalCount":\d+\}', re.M)
         infos = json.loads(pattern.findall(html)[0][8:])
         #{u'currentPage': 1, u'totalPage': 100, u'pageSize': 44, u'totalCount': 7718071}
@@ -471,7 +358,7 @@ class CaptureTaobao(object):
                 logger.error('driver.page_source: {}'.format(html))
                 raise ValueError('not get valid data')
             select_sql = 'SELECT ID,STATUS FROM market_banner_raw WHERE CHANNEL="{channel}" and LINK="{link}" ORDER BY CREATE_TIME DESC '
-            (insert_datas, update_datas) = self.__checkDatas(select_sql, resultDatas)
+            (insert_datas, update_datas) = self._checkDatas(select_sql, resultDatas, ['ID', 'STATUS'])
             columns = ['CHANNEL', 'LINK', 'MAIN_IMAGE', 'CREATE_TIME', 'STATUS']
             table = TABLE_NAME_HOME
             result_insert, result_update = True, True
@@ -508,7 +395,7 @@ def main():
     objCaptureTaobao.dealCategorys()
 
     # 查询并入库首页推荐商品信息
-    objCaptureTaobao.dealHomeGoods()
+    # objCaptureTaobao.dealHomeGoods()
 
     #查询商品总信息 例如总页数 总条数
     # objCaptureTaobao.getPageInfos(u'https://s.taobao.com/search?spm=a21wu.241046-cn.6977698868.5.2816e72eg2pkH9&q=%E5%A5%B3%E8%A3%85&acm=lb-zebra-241046-2058600.1003.4.1797247&scm=1003.4.lb-zebra-241046-2058600.OTHER_14950676920071_1797247')
@@ -522,7 +409,7 @@ def main():
     # print objCaptureTaobao.getHtml(u'https://s.taobao.com/search?spm=a21wu.241046-cn.6977698868.5.2816e72eg2pkH9&q=%E5%A5%B3%E8%A3%85&acm=lb-zebra-241046-2058600.1003.4.1797247&scm=1003.4.lb-zebra-241046-2058600.OTHER_14950676920071_1797247')
     # print objCaptureTaobao.getHtml('https://world.taobao.com/')
     # 入库商品信息
-    objCaptureTaobao.saveCategoryGoods([{'status': '01', 'kind': '\xe5\xa5\xb3\xe8\xa3\x85\xe7\xb2\xbe\xe5\x93\x81', 'main_image': 'https://g-search1.alicdn.com/img/bao/uploaded/i4/imgextra/i2/96654238/TB2sKS2afal9eJjSZFzXXaITVXa_!!0-saturn_solar.jpg', 'product_id': '560327725588', 'description': u'\u534a\u9ad8\u9886\u9488\u7ec7\u6253\u5e95\u886b\u957f\u8896\u5957\u5934\u6bdb\u8863\u5973\u79cb\u51ac\u88c5\u65b0\u6b3e\u97e9\u7248\u5bbd\u677e\u767e\u642d\u77ed\u6b3e\u7ebf\u8863', 'site': 's.taobao', 'currency': 'CNY', 'amount': 49.8, 'create_time': '20171130205215', 'link': 'https://detail.tmall.com/item.htm?id=560327725588', 'detail_image': 'https://g-search1.alicdn.com/img/bao/uploaded/i4/imgextra/i2/96654238/TB2sKS2afal9eJjSZFzXXaITVXa_!!0-saturn_solar.jpg_180x180.jpg', 'display_count': 39201, 'channel': 'taobao', 'name': u'\u534a\u9ad8\u9886\u957f\u8896\u9488\u7ec7\u6253\u5e95\u886b\u5bbd\u677e\u6bdb\u8863\u5957\u5934\u77ed\u6b3e\u767e\u642d'}])
+    # objCaptureTaobao.saveCategoryGoods([{'status': '01', 'kind': '\xe5\xa5\xb3\xe8\xa3\x85\xe7\xb2\xbe\xe5\x93\x81', 'main_image': 'https://g-search1.alicdn.com/img/bao/uploaded/i4/imgextra/i2/96654238/TB2sKS2afal9eJjSZFzXXaITVXa_!!0-saturn_solar.jpg', 'product_id': '560327725588', 'description': u'\u534a\u9ad8\u9886\u9488\u7ec7\u6253\u5e95\u886b\u957f\u8896\u5957\u5934\u6bdb\u8863\u5973\u79cb\u51ac\u88c5\u65b0\u6b3e\u97e9\u7248\u5bbd\u677e\u767e\u642d\u77ed\u6b3e\u7ebf\u8863', 'site': 's.taobao', 'currency': 'CNY', 'amount': 49.8, 'create_time': '20171130205215', 'link': 'https://detail.tmall.com/item.htm?id=560327725588', 'detail_image': 'https://g-search1.alicdn.com/img/bao/uploaded/i4/imgextra/i2/96654238/TB2sKS2afal9eJjSZFzXXaITVXa_!!0-saturn_solar.jpg_180x180.jpg', 'display_count': 39201, 'channel': 'taobao', 'name': u'\u534a\u9ad8\u9886\u957f\u8896\u9488\u7ec7\u6253\u5e95\u886b\u5bbd\u677e\u6bdb\u8863\u5957\u5934\u77ed\u6b3e\u767e\u642d'}])
     endTime = datetime.now()
     print 'seconds', (endTime - startTime).seconds
 if __name__ == '__main__':
