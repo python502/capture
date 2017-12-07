@@ -100,9 +100,11 @@ class CaptureBase(object):
         for data in scr_datas:
             if goods.get(data[match]):
                 logger.debug('find repead data: {}'.format(data[match]))
+                logger.debug('data: {},save_data: {}'.format(data, goods.get(data[match])))
+                repeat_num += 1
             else:
                 goods[data[match]] = data
-                repeat_num += 1
+        logger.info('repead data count: {}'.format(repeat_num))
         return [value for value in goods.itervalues()]
 
     def _checkDatas(self, select_sql, sourcedatas, columns):
@@ -117,7 +119,7 @@ class CaptureBase(object):
                     insert_datas.append(sourcedata)
                 else:
                     if len(result) != 1:
-                        logger.error('checkHomeDatas get many lines:{}'.format(result))
+                        logger.error('checkDatas get many lines:{}'.format(result))
                         logger.error('select_sql: {}'.format(sql))
                     for column in columns:
                         sourcedata[column.lower()] = result[0].get(column.upper())

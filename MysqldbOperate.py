@@ -137,9 +137,11 @@ class MysqldbOperate(object):
                 if isinstance(param, (int, long, float, bool)):
                     ret.append(str(param))
                 elif isinstance(param, str):
+                    param = param.replace('"','\'')
                     ret.append('"' + param + '"')
                 elif isinstance(param, unicode):
-                        ret.append('"' + param.encode('utf8') + '"')
+                    param = param.replace('"', '\'')
+                    ret.append('"' + param.encode('utf8') + '"')
                 else:
                     logger.error('unsupport value: '.format(param))
             return '(' + ','.join(ret) + ')'

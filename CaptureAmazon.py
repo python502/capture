@@ -463,7 +463,7 @@ def main():
     # 获取所有类别id
     # objCaptureAmazon.get_department()
     # 查询并入库所有类别的商品信息
-    # objCaptureAmazon.dealCategorys()
+    objCaptureAmazon.dealCategorys()
     # # 查询并入库首页推荐商品信息
     objCaptureAmazon.dealHomeGoods()
     # 查询dealID的商品信息
