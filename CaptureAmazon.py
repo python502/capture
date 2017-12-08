@@ -7,11 +7,6 @@
 # @File    : CaptureAmazon.py
 # @Software: PyCharm
 # @Desc    :
-'''
-Created on 2016年6月4日
-
-@author: Administrator
-'''
 import random
 import os
 from CaptureBase import CaptureBase
@@ -29,12 +24,6 @@ from retrying import retry
 from datetime import datetime
 from urlparse import urljoin
 
-TABLE_NAME_GOODS = 'market_product_raw'
-TABLE_NAME_HOME = 'market_banner_raw'
-TABLE_NAME_VERIFY = 'market_verify_raw'
-'''
-classdocs
-'''
 class CaptureAmazon(CaptureBase):
     department_url = 'https://www.amazon.com/gp/goldbox/'
     home_url = 'https://www.amazon.com/'
@@ -65,15 +54,12 @@ class CaptureAmazon(CaptureBase):
             Host:images-na.ssl-images-amazon.com
             User-Agent:{}
             '''
-
     Channel = 'amazon'
     def __init__(self, user_agent, proxy_ip=None):
-        '''
-        Constructor
-        '''
         super(CaptureAmazon, self).__init__(user_agent, proxy_ip)
         self.header = self._getDict4str(self.HEADER.format(self.user_agent))
         self.header_varify = self._getDict4str(self.HEADER_VARIFY.format(self.user_agent))
+
     def __del__(self):
         super(CaptureAmazon, self).__del__()
 
@@ -129,8 +115,6 @@ class CaptureAmazon(CaptureBase):
             logger.error('categoryurl: {} error'.format(categoryurl))
             logger.error('dealCategory error: {}.'.format(e))
             return False
-
-
     '''
     function: 格式化数据
     @category: category 分类名
@@ -144,7 +128,6 @@ class CaptureAmazon(CaptureBase):
             try:
                 resultData = {}
                 resultData['CHANNEL'.lower()] = self.Channel
-                # resultData['KIND'.lower()] = category.encode('utf8') if isinstance(category, (str, unicode)) else category
                 resultData['KIND'.lower()] = category
                 resultData['SITE'.lower()] = 'goldbox'
                 resultData['STATUS'.lower()] = '01'
@@ -187,7 +170,6 @@ class CaptureAmazon(CaptureBase):
 
                 resultData['RESERVE'.lower()] = sourceData.get('dealID').strip()
                 # resultData = [time.strftime('%Y-%m-%d',time.localtime(time.time()))]  #日期
-                # resultData = [time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time()))]  #日期+时间
                 resultDatas.append(resultData)
             except Exception, e:
                 logger.error('format_data error: {}.'.format(e))
@@ -195,39 +177,6 @@ class CaptureAmazon(CaptureBase):
         if Not_BEST_DEAL == len(sourceDatas):
             logger.error('This time all the goods are not BEST_DEAL')
         return resultDatas
-
-    '''
-    function: 格式化数据并将商品入库 存在不同detailId 对应相同商品的情况
-    @source_datas: 原始数据
-    @return: True or False
-    '''
-    def saveCategoryGoods(self, source_datas):
-        try:
-            result_insert, result_update = True, True
-            logger.debug('source_datas: {}'.format(source_datas))
-            # select_sql = 'SELECT ID,STATUS FROM market_product_raw WHERE CHANNEL="{channel}" and KIND="{kind}" AND PRODUCT_ID="{product_id}" AND RESERVE="{reserve}" ORDER BY CREATE_TIME DESC '
-            select_sql = 'SELECT ID,STATUS FROM market_product_raw WHERE CHANNEL="{channel}" AND PRODUCT_ID="{product_id}" ORDER BY CREATE_TIME DESC '
-            (insert_datas, update_datas) = self._checkDatas(select_sql, source_datas, ['ID', 'STATUS'])
-            columns = ['CHANNEL', 'KIND', 'SITE', 'PRODUCT_ID', 'LINK', 'MAIN_IMAGE', 'NAME', 'DESCRIPTION', 'Currency',\
-                       'AMOUNT', 'HIGH_AMOUNT', 'Before_AMOUNT', 'Before_HIGH_AMOUNT', 'COMMEND_FLAG', 'CREATE_TIME', 'DISPLAY_COUNT', 'RESERVE', 'STATUS']
-            table = TABLE_NAME_GOODS
-            if insert_datas:
-                operate_type = 'insert'
-                l = len(insert_datas)
-                logger.info('len insert_datas: {}'.format(l))
-                result_insert = self.mysql.insert_batch(operate_type, table, columns, insert_datas)
-                logger.info('result_insert: {}'.format(result_insert))
-            if update_datas:
-                operate_type = 'replace'
-                l = len(update_datas)
-                logger.info('len update_datas: {}'.format(l))
-                columns.insert(0, 'ID')
-                result_update = self.mysql.insert_batch(operate_type, table, columns, update_datas)
-                logger.info('result_update: {}'.format(result_update))
-            return result_insert and result_update
-        except Exception, e:
-            logger.error('saveCategoryGoods error: {}.'.format(e))
-            return False
     '''
     function: 获取商品信息 post请求
     @source_datas: 原始数据
@@ -316,7 +265,15 @@ class CaptureAmazon(CaptureBase):
             logger.info('After the data remove duplicates: {}'.format(len(resultDatas)))
             if not resultDatas:
                 raise ValueError('dealCategorys get no resultDatas ')
-            return self.saveCategoryGoods(resultDatas)
+
+            format_select =  'SELECT ID,STATUS FROM {} WHERE CHANNEL="{{channel}}" AND PRODUCT_ID="{{product_id}}" ORDER BY CREATE_TIME DESC'
+            good_datas = resultDatas
+            select_sql = format_select.format(self.TABLE_NAME_PRODUCT)
+            table = self.TABLE_NAME_PRODUCT
+            replace_insert_columns = ['CHANNEL', 'KIND', 'SITE', 'PRODUCT_ID', 'LINK', 'MAIN_IMAGE', 'NAME', 'DESCRIPTION', 'Currency',\
+                       'AMOUNT', 'HIGH_AMOUNT', 'Before_AMOUNT', 'Before_HIGH_AMOUNT', 'COMMEND_FLAG', 'CREATE_TIME', 'DISPLAY_COUNT', 'RESERVE', 'STATUS']
+            select_columns = ['ID', 'STATUS']
+            return self._saveDatas(good_datas, table, select_sql, replace_insert_columns, select_columns)
         except Exception, e:
             logger.error('dealCategorys error: {}'.format(e))
         finally:
@@ -334,14 +291,9 @@ class CaptureAmazon(CaptureBase):
         os.remove(img_name)
         return verify_code
 
-    '''
-    function: 获取并存储首页滚动栏的商品信息
-    @return: True or raise
-    '''
     @retry(stop_max_attempt_number=3, wait_fixed=2000)
-    def dealHomeGoods(self):
+    def getHtmlselenium(self, url):
         driver = None
-        result_datas = []
         try:
             dcap = dict(DesiredCapabilities.PHANTOMJS)
             dcap["phantomjs.page.settings.userAgent"] = self.user_agent
@@ -353,7 +305,7 @@ class CaptureAmazon(CaptureBase):
             verify_image_url = ''
             verify_code = ''
             while 1:
-                driver.get(self.home_url)
+                driver.get(url)
                 #判断是否被反爬虫 要去输入验证码
                 pattern = re.compile(r'<h4>Type the characters you see in this image:</h4>', re.M)
                 need_verify = True if pattern.search(driver.page_source) else False
@@ -386,9 +338,27 @@ class CaptureAmazon(CaptureBase):
                     break
             #设置定位元素时的超时时间
             driver.implicitly_wait(10)
-            soup = BeautifulSoup(driver.page_source, 'lxml')
+            page = driver.page_source.encode('utf-8') if isinstance(driver.page_source, (str, unicode)) else driver.page_source
+            logger.debug('driver.page_source: {}'.format(page))
+            return page
+        except Exception, e:
+            logger.error('getHtmlselenium error:{},retry it'.format(e))
+            raise
+        finally:
+            if driver:
+                driver.quit()
+    '''
+    function: 获取并存储首页滚动栏的商品信息
+    @return: True or raise
+    '''
+    @retry(stop_max_attempt_number=3, wait_fixed=2000)
+    def dealHomeGoods(self):
+        result_datas = []
+        try:
+            page_source = self.getHtmlselenium(self.home_url)
+            soup = BeautifulSoup(page_source, 'lxml')
             pattern = re.compile(r'<li class="a-carousel-card" role="listitem" aria-setsize="\d+" aria-posinset=', re.M)
-            aria_set_size_str = pattern.findall(driver.page_source)[0]
+            aria_set_size_str = pattern.findall(page_source)[0]
             pattern = re.compile(r'\d+', re.M)
             aria_set_size = pattern.findall(aria_set_size_str)[0]
             for i in range(1, int(aria_set_size)+1):
@@ -422,35 +392,19 @@ class CaptureAmazon(CaptureBase):
                     logger.error('goodData: {}'.format(good_data))
                     continue
             if len(result_datas) == 0:
-                logger.error('driver.page_source: {}'.format(driver.page_source))
+                logger.error('page_source: {}'.format(page_source))
                 raise ValueError('not get valid data')
-            select_sql = 'SELECT ID,STATUS FROM market_banner_raw WHERE CHANNEL="{channel}" and LINK="{link}" ORDER BY CREATE_TIME DESC '
-            (insert_datas, update_datas) = self._checkDatas(select_sql, result_datas, ['ID', 'STATUS'])
-            # #不要小图
-            # column = 'CHANNEL, LINK, TITLE, MIN_IMAGE, MAIN_IMAGE, CREATE_TIME'
-            columns = ['CHANNEL', 'LINK', 'TITLE', 'MAIN_IMAGE', 'CREATE_TIME', 'STATUS']
-            table = TABLE_NAME_HOME
-            result_insert, result_update = True, True
-            if insert_datas:
-                operate_type = 'insert'
-                length = len(insert_datas)
-                logger.info('len insert_datas: {}'.format(length))
-                result_insert = self.mysql.insert_batch(operate_type, table, columns, insert_datas)
-                logger.info('result_insert: {}'.format(result_insert))
-            if update_datas:
-                operate_type = 'replace'
-                length = len(update_datas)
-                logger.info('len update_datas: {}'.format(length))
-                columns.insert(0, 'ID')
-                result_update = self.mysql.insert_batch(operate_type, table, columns, update_datas)
-                logger.info('result_update: {}'.format(result_update))
-            return result_insert and result_update
+
+            format_select = 'SELECT ID,STATUS FROM {} WHERE CHANNEL="{{channel}}" and LINK="{{link}}" ORDER BY CREATE_TIME DESC'
+            good_datas = result_datas
+            select_sql = format_select.format(self.TABLE_NAME_BANNER)
+            table = self.TABLE_NAME_BANNER
+            replace_insert_columns = ['CHANNEL', 'LINK', 'TITLE', 'MAIN_IMAGE', 'CREATE_TIME', 'STATUS']
+            select_columns = ['ID', 'STATUS']
+            return self._saveDatas(good_datas, table, select_sql, replace_insert_columns, select_columns)
         except Exception, e:
             logger.error('Get home goods infos error:{},retry it'.format(e))
             raise
-        finally:
-            if driver:
-                driver.quit()
 
 def main():
     startTime = datetime.now()
@@ -473,8 +427,6 @@ def main():
     # 获取具体网址的html信息
     # objCaptureAmazon.getHtml('https://images-na.ssl-images-amazon.com/captcha/usvmgloq/Captcha_jxqunydgna.jpg')
     # objCaptureAmazon.getHtml('https://www.amazon.com/gp/goldbox/?gb_f_GB-SUPPLE=enforcedCategories:2625373011,sortOrder:BY_SCORE,dealStates:AVAILABLE%252CWAITLIST%252CWAITLISTFULL', objCaptureAmazon.header)
-    # 入库商品信息
-    # objCaptureAmazon.saveCategoryGoods([{'status': '01', 'kind': '\xe5\xa5\xb3\xe8\xa3\x85\xe7\xb2\xbe\xe5\x93\x81', 'main_image': 'https://g-search1.alicdn.com/img/bao/uploaded/i4/imgextra/i2/96654238/TB2sKS2afal9eJjSZFzXXaITVXa_!!0-saturn_solar.jpg', 'product_id': '560327725588', 'description': u'\u534a\u9ad8\u9886\u9488\u7ec7\u6253\u5e95\u886b\u957f\u8896\u5957\u5934\u6bdb\u8863\u5973\u79cb\u51ac\u88c5\u65b0\u6b3e\u97e9\u7248\u5bbd\u677e\u767e\u642d\u77ed\u6b3e\u7ebf\u8863', 'site': 's.taobao', 'currency': 'CNY', 'amount': 49.8, 'create_time': '20171130205215', 'link': 'https://detail.tmall.com/item.htm?id=560327725588', 'detail_image': 'https://g-search1.alicdn.com/img/bao/uploaded/i4/imgextra/i2/96654238/TB2sKS2afal9eJjSZFzXXaITVXa_!!0-saturn_solar.jpg_180x180.jpg', 'display_count': 39201, 'channel': 'taobao', 'name': u'\u534a\u9ad8\u9886\u957f\u8896\u9488\u7ec7\u6253\u5e95\u886b\u5bbd\u677e\u6bdb\u8863\u5957\u5934\u77ed\u6b3e\u767e\u642d'}])
     endTime = datetime.now()
     print 'seconds', (endTime - startTime).seconds
 if __name__ == '__main__':

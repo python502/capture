@@ -7,18 +7,10 @@
 # @File    : CaptureTaobao.py
 # @Software: PyCharm
 # @Desc    :
-'''
-Created on 2016年6月4日
-
-@author: Administrator
-'''
-import os
 import urllib
 import re
 import json
 import time
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
-from selenium import webdriver
 from CrawlingProxy import CrawlingProxy,useragent
 from logger import logger
 from bs4 import BeautifulSoup
@@ -26,13 +18,7 @@ from retrying import retry
 from datetime import datetime
 from CaptureBase import CaptureBase
 
-TABLE_NAME_GOODS = 'market_product_raw'
-TABLE_NAME_HOME = 'market_banner_raw'
-'''
-classdocs
-'''
 class CaptureTaobao(CaptureBase):
-    phantomjs_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'phantomjs.exe')
     home_url = 'https://world.taobao.com/'
     good_url = 'https://detail.tmall.com/item.htm?id={}'
     http_url = 'https:{}'
@@ -47,39 +33,12 @@ class CaptureTaobao(CaptureBase):
             '''
     Channel = 'taobao'
     def __init__(self, user_agent, proxy_ip=None):
-        '''
-        Constructor
-        '''
         super(CaptureTaobao, self).__init__(user_agent, proxy_ip)
         self.get_page = 3
         self.header = self._getDict4str(self.HEADER.format(self.user_agent))
 
     def __del__(self):
         super(CaptureTaobao, self).__del__()
-
-    @retry(stop_max_attempt_number=3, wait_fixed=2000)
-    def getHtmlselenium(self, url):
-        driver = None
-        try:
-            # # 全请求头设定
-            # # 使用copy()防止修改原代码定义dict
-            # cap = DesiredCapabilities.PHANTOMJS.copy()
-            # for key, value in self.header.items():
-            #     cap['phantomjs.page.customHeaders.{}'.format(key)] = value
-            driver = webdriver.PhantomJS(executable_path=self.phantomjs_path)
-            #加载页面的超时时间
-            driver.set_page_load_timeout(60)
-            driver.set_script_timeout(60)
-            driver.get(url)
-            page = driver.page_source.encode('utf-8') if isinstance(driver.page_source, (str, unicode)) else driver.page_source
-            logger.debug('driver.page_source: {}'.format(page))
-            return page
-        except Exception, e:
-            logger.error('getHtmlselenium error:{},retry it'.format(e))
-            raise
-        finally:
-            if driver:
-                driver.quit()
 
     def get_department(self):
         print '*'*40
@@ -120,7 +79,6 @@ class CaptureTaobao(CaptureBase):
             logger.error('__get_department error: {}'.format(e))
             logger.error('html: {}'.format(html))
             raise
-
     '''
     function: 获取所有分类的商品信息
     @
@@ -137,7 +95,6 @@ class CaptureTaobao(CaptureBase):
                     resultDatas.extend(result)
                 except Exception, e:
                     logger.error('end do dealCategory error: {}'.format(e))
-                    logger.error('end category {} error'.format(department[0]))
                     logger.error('end department {}'.format(department))
                     continue
             logger.info('all categorys get data: {}'.format(len(resultDatas)))
@@ -145,45 +102,17 @@ class CaptureTaobao(CaptureBase):
             logger.info('After the data is repeated: {}'.format(len(resultDatas)))
             if not resultDatas:
                 raise ValueError('dealCategorys get no resultDatas ')
-            return self.saveCategoryGoods(resultDatas)
-            logger.info('end of crawler result:{}'.format(results))
+
+            format_select =  'SELECT ID,STATUS FROM {} WHERE CHANNEL="{{channel}}" AND PRODUCT_ID="{{product_id}}" ORDER BY CREATE_TIME DESC'
+            good_datas = resultDatas
+            select_sql = format_select.format(self.TABLE_NAME_PRODUCT)
+            table = self.TABLE_NAME_PRODUCT
+            replace_insert_columns = ['CHANNEL','KIND','SITE','PRODUCT_ID','LINK','MAIN_IMAGE','NAME','DETAIL_IMAGE','DESCRIPTION','Currency','AMOUNT','CREATE_TIME','DISPLAY_COUNT','STATUS']
+            select_columns = ['ID', 'STATUS']
+            return self._saveDatas(good_datas, table, select_sql, replace_insert_columns, select_columns)
         except Exception, e:
             logger.error('dealCategorys error: {}'.format(e))
 
-
-    '''
-    function: 存储分类商品信息
-    @good_datas： 商品信息s
-    @return: True or False or raise
-    '''
-    def saveCategoryGoods(self, good_datas):
-        try:
-            result_insert, result_update = True, True
-            table = TABLE_NAME_GOODS
-            columns = ['CHANNEL','KIND','SITE','PRODUCT_ID','LINK','MAIN_IMAGE','NAME','DETAIL_IMAGE','DESCRIPTION','Currency','AMOUNT','CREATE_TIME','DISPLAY_COUNT','STATUS']
-            if not good_datas:
-                logger.error('not get datas to save')
-                return False
-            # select_sql = 'SELECT ID,STATUS FROM market_product_raw WHERE CHANNEL="{channel}" and KIND="{kind}" AND PRODUCT_ID="{product_id}" ORDER BY CREATE_TIME DESC '
-            select_sql = 'SELECT ID,STATUS FROM market_product_raw WHERE CHANNEL="{channel}" AND PRODUCT_ID="{product_id}" ORDER BY CREATE_TIME DESC '
-            (insert_datas, update_datas) = self._checkDatas(select_sql, good_datas, ['ID', 'STATUS'])
-            if insert_datas:
-                operate_type = 'insert'
-                l = len(insert_datas)
-                logger.info('len insert_datas: {}'.format(l))
-                result_insert = self.mysql.insert_batch(operate_type, table, columns, insert_datas)
-                logger.info('result_insert: {}'.format(result_insert))
-            if update_datas:
-                operate_type = 'replace'
-                l = len(update_datas)
-                logger.info('len update_datas: {}'.format(l))
-                columns.insert(0, 'ID')
-                result_update = self.mysql.insert_batch(operate_type, table, columns, update_datas)
-                logger.info('result_update: {}'.format(result_update))
-            return result_insert and result_update
-        except Exception, e:
-            logger.error('saveCategoryGoods error: {}.'.format(e))
-            return False
 
     '''
     function: 获取单页商品信息
@@ -193,20 +122,11 @@ class CaptureTaobao(CaptureBase):
     '''
     @retry(stop_max_attempt_number=3, wait_fixed=2000)
     def getGoodInfos(self, category, pageurl, num):
-        driver = None
         try:
             logger.debug('pageurl: {}'.format(pageurl))
             result_datas = []
-            dcap = dict(DesiredCapabilities.PHANTOMJS)
-            dcap["phantomjs.page.settings.userAgent"] = self.user_agent
-            dcap["phantomjs.page.settings.loadImages"] = False#禁止加载图片
-            driver = webdriver.PhantomJS(executable_path=self.phantomjs_path)
-            #加载页面的超时时间
-            driver.set_page_load_timeout(30)
-            driver.set_script_timeout(30)
-            driver.get(pageurl)
-            driver.implicitly_wait(10)
-            soup = BeautifulSoup(driver.page_source, 'lxml')
+            page_source = self.getHtmlselenium(pageurl)
+            soup = BeautifulSoup(page_source, 'lxml')
             goods_infos = soup.select('div .item.J_MouserOnverReq')
             len_goods = len(goods_infos)
             # if num and len_goods != num:
@@ -241,7 +161,7 @@ class CaptureTaobao(CaptureBase):
                         resultData['DESCRIPTION'.lower()] = good_description
                     except Exception, e:
                         logger.error('good_description error: {}'.format(e))
-                        logger.error('goods_info: {}'.format(goods_info))
+                        # logger.error('goods_info: {}'.format(goods_info))
 
                     try:
                         good_maxDealPrice = goods_info.find_all('div', {'class':"price g_price g_price-highlight"})[0].getText().strip('\n').strip('')
@@ -253,7 +173,7 @@ class CaptureTaobao(CaptureBase):
                         resultData['AMOUNT'.lower()] = good_maxDealPrice
                     except Exception, e:
                         logger.error('good_maxDealPrice error: {}'.format(e))
-                        logger.error('goods_info: {}'.format(goods_info))
+                        # logger.error('goods_info: {}'.format(goods_info))
                         resultData['Currency'.lower()] = 'USD'
                         resultData['AMOUNT'.lower()] = 0
 
@@ -266,7 +186,7 @@ class CaptureTaobao(CaptureBase):
                         resultData['DISPLAY_COUNT'.lower()] = good_dealcnt
                     except Exception, e:
                         logger.error('good_dealcnt error: {}'.format(e))
-                        logger.error('goods_info: {}'.format(goods_info))
+                        # logger.error('goods_info: {}'.format(goods_info))
                         resultData['DISPLAY_COUNT'.lower()] = 0
                     result_datas.append(resultData)
                 except Exception, e:
@@ -281,9 +201,7 @@ class CaptureTaobao(CaptureBase):
         except Exception, e:
             logger.error('getGoodInfos error:{},retry it'.format(e))
             raise
-        finally:
-            if driver:
-                driver.quit()
+
     '''
     function: 获取并存储单类商品信息
     @category： 分类名
@@ -314,7 +232,6 @@ class CaptureTaobao(CaptureBase):
             logger.error('dealCategory {} error:{}'.format(category, e))
             raise
 
-
     '''
     function: 获取分类商品信息(pageSize,totalPage,currentPage,totalCount)
     @return: dict or None
@@ -325,7 +242,6 @@ class CaptureTaobao(CaptureBase):
         infos = json.loads(pattern.findall(html)[0][8:])
         #{u'currentPage': 1, u'totalPage': 100, u'pageSize': 44, u'totalCount': 7718071}
         return infos
-
 
     '''
     function: 获取并存储首页滚动栏的商品信息
@@ -357,25 +273,14 @@ class CaptureTaobao(CaptureBase):
             if len(resultDatas) == 0:
                 logger.error('driver.page_source: {}'.format(html))
                 raise ValueError('not get valid data')
-            select_sql = 'SELECT ID,STATUS FROM market_banner_raw WHERE CHANNEL="{channel}" and LINK="{link}" ORDER BY CREATE_TIME DESC '
-            (insert_datas, update_datas) = self._checkDatas(select_sql, resultDatas, ['ID', 'STATUS'])
-            columns = ['CHANNEL', 'LINK', 'MAIN_IMAGE', 'CREATE_TIME', 'STATUS']
-            table = TABLE_NAME_HOME
-            result_insert, result_update = True, True
-            if insert_datas:
-                operate_type = 'insert'
-                length = len(insert_datas)
-                logger.info('len insert_datas: {}'.format(length))
-                result_insert = self.mysql.insert_batch(operate_type, table, columns, insert_datas)
-                logger.info('result_insert: {}'.format(result_insert))
-            if update_datas:
-                operate_type = 'replace'
-                length = len(update_datas)
-                logger.info('len update_datas: {}'.format(length))
-                columns.insert(0, 'ID')
-                result_update = self.mysql.insert_batch(operate_type, table, columns, update_datas)
-                logger.info('result_update: {}'.format(result_update))
-            return result_insert and result_update
+
+            format_select = 'SELECT ID,STATUS FROM {} WHERE CHANNEL="{{channel}}" and LINK="{{link}}" ORDER BY CREATE_TIME DESC'
+            good_datas = resultDatas
+            select_sql = format_select.format(self.TABLE_NAME_BANNER)
+            table = self.TABLE_NAME_BANNER
+            replace_insert_columns = ['CHANNEL', 'LINK', 'MAIN_IMAGE', 'CREATE_TIME', 'STATUS']
+            select_columns = ['ID', 'STATUS']
+            return self._saveDatas(good_datas, table, select_sql, replace_insert_columns, select_columns)
         except Exception, e:
             logger.error('dealHomeGoods error:{}'.format( e))
             raise
