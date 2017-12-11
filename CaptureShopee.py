@@ -4,43 +4,48 @@
 # @Author  : long.zhang
 # @Contact : long.zhang@opg.global
 # @Site    :
-# @File    : CaptureEzbug.py
+# @File    : CaptureShopee.py
 # @Software: PyCharm
 # @Desc    :
 import os
 from CaptureBase import CaptureBase
 import re
 import time
+import json
 from CrawlingProxy import CrawlingProxy,useragent
 from logger import logger
 from bs4 import BeautifulSoup
 from retrying import retry
 from datetime import datetime
 from urlparse import urljoin
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+from selenium import webdriver
 
-class CaptureEzbug(CaptureBase):
-    home_url = 'https://ezbuy.sg/'
-    white_department = [u'Women\'s Clothing', u'Men\'s Clothing', u'Toys, Mother & Kids', u'Home & Garden', u'Shoes, Bags & Accessories', \
-                         u'Beauty & Health', u'Sports & Outdoors', u'Office & Stationery', u'Automotives', u'Mobiles & Tablets']
-    # white_department = [u'Sports & Outdoors']
+class CaptureShopee(CaptureBase):
+    department_url = 'https://shopee.sg/api/v1/category_list/'
+    home_url = 'https://shopee.sg/'
+    white_department = ['Men\'s Wear', 'Women\'s Apparel', 'Mobile & Gadgets', 'Health & Beauty', 'Food & Beverages', \
+                         'Toys, Kids & Babies', 'Home Appliances', 'Home & Living', 'Men\'s Shoes', 'Women\'s Shoes' \
+                          'Watches','Accessories', 'Computers & Peripherals', 'Bags', 'Games & Hobbies', 'Design & Crafts' \
+                          'Sports & Outdoors', 'Pet Accessories', 'Miscellaneous', 'Tickets & Vouchers']
+    # white_department = ['Men\'s Wear']
     HEADER = '''
-            Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8
-            Accept-Encoding:gzip, deflate, br
-            Accept-Language:zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7
-            Cache-Control:max-age=0
-            Connection:keep-alive
-            Host:ezbuy.sg
+            accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8
+            accept-encoding:gzip, deflate, br
+            accept-language:zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7
+            cache-control:max-age=0
             Upgrade-Insecure-Requests:1
             User-Agent:{}
             '''
-    Channel = 'ezbuy'
+    Channel = 'shopee'
+    add_sub = False
 
     def __init__(self, user_agent, proxy_ip=None):
-        super(CaptureEzbug, self).__init__(user_agent, proxy_ip)
+        super(CaptureShopee, self).__init__(user_agent, proxy_ip)
         self.header = self._getDict4str(self.HEADER.format(self.user_agent))
 
     def __del__(self):
-        super(CaptureEzbug, self).__del__()
+        super(CaptureShopee, self).__del__()
 
     '''
     function: 查询并将商品入库
@@ -51,12 +56,10 @@ class CaptureEzbug(CaptureBase):
         goods_infos = []
         category = department[0]
         try:
-            page_num = 56#每页显示多少商品
             get_page = 2
-            formaturl='https://ezbuy.sg{}&offset={}'
+            formaturl='{}?page={}'
             for i in range(get_page):
-                offset = page_num*i
-                page_url = formaturl.format(department[1], offset)
+                page_url = formaturl.format(department[1], i)
                 try:
                     page_results = self.getGoodInfos(category, page_url)
                     goods_infos.extend(page_results)
@@ -70,20 +73,26 @@ class CaptureEzbug(CaptureBase):
             logger.error('category: {} error'.format(category))
             logger.error('dealCategory error: {}.'.format(e))
             return False
+
     '''
     function: 获取单页商品信息
     @category： 分类名
     @firsturl： 商品页url
     @return: True or False or raise
     '''
-    @retry(stop_max_attempt_number=5, wait_fixed=3000)
+    @retry(stop_max_attempt_number=3, wait_fixed=3000)
     def getGoodInfos(self, category, pageurl):
         try:
             logger.debug('pageurl: {}'.format(pageurl))
             result_datas = []
             page_source = self.getHtmlselenium(pageurl)
             soup = BeautifulSoup(page_source, 'lxml')
-            goods_infos = soup.select('div .product-item')
+            goods_headers = soup.findAll('script', {'type': 'application/ld+json'})
+            resultHerder = {}
+            for goods_header in goods_headers:
+                good = json.loads(goods_header.contents[0].encode('utf-8'))
+                resultHerder[good.get('url')] = good.get('image')
+            goods_infos = soup.select('div .shopee-search-result-view__item-card')
             for goods_info in goods_infos:
                 resultData = {}
                 resultData['CHANNEL'.lower()] = self.Channel
@@ -91,41 +100,53 @@ class CaptureEzbug(CaptureBase):
                 resultData['SITE'.lower()] = 'category'
                 resultData['STATUS'.lower()] = '01'
                 try:
-                    good_link = goods_info.find('div', {'class': 'info'}).find('a', {'class':"name"}).attrs['href']
-                    resultData['LINK'.lower()] = urljoin(self.home_url, good_link)
+                    good_link = urljoin(self.home_url, goods_info.find('a', {'class': 'shopee-item-card--link'}).attrs['href'])
+                    resultData['LINK'.lower()] = good_link
 
-                    pattern = re.compile(r'^/product/\d+.html', re.M)
-                    good_id = pattern.match(good_link).group()
-                    pattern = re.compile(r'\d+', re.M)
-                    good_id = pattern.search(good_id).group()
-                    resultData['PRODUCT_ID'.lower()] = good_id
+                    good_img = resultHerder.get(good_link)
+                    if not good_img:
+                        logger.error('good_link: {} not get image error'.format(good_link))
+                        continue
+                    resultData['MAIN_IMAGE'.lower()] = good_img
 
-                    good_img_big = goods_info.find('div', {'class': 'img'}).find('img').attrs['src']
-                    if good_img_big.startswith('//'):
-                        good_img_big = urljoin('https:', good_img_big)
+                    pattern = re.compile(r'-i\.\d+\.\d+', re.M)
+                    good_id = pattern.findall(good_link)[0]
+                    resultData['PRODUCT_ID'.lower()] = good_id.split('.')[-1]
 
-                    resultData['MAIN_IMAGE'.lower()] = good_img_big
-                    good_title = goods_info.find('div', {'class': 'info'}).find('a', {'class':"name"}).getText().strip('\n').strip(' ').strip('\n')
-                    good_title = CaptureEzbug.filter_emoji(good_title)
+                    good_title = goods_info.find('div', {'class': 'shopee-item-card__text-name'}).getText().strip('\n').strip(' ').strip('\n')
+                    good_title = CaptureShopee.filter_emoji(good_title)
                     resultData['NAME'.lower()] = good_title
+
                     try:
-                        PriceInfo = goods_info.find('div', {'class': 'info'}).find('span', {'class': "price"}).find('span').getText().strip(' ')
-                        PriceInfo = PriceInfo.split(' ')
-                        good_maxDealPrice = float(PriceInfo[1])
+                        BeforePriceInfo = goods_info.find('div', {'class': 'shopee-item-card__original-price'}).getText().strip('$')
+                        good_maxBeforeDealPrice = float(BeforePriceInfo)
+                        resultData['Before_AMOUNT'.lower()] = good_maxBeforeDealPrice
+                    except Exception, e:
+                        # logger.error('good_maxDealPrice error: {}'.format(e))
+                        resultData['Before_AMOUNT'.lower()] = 0
+
+                    try:
+                        PriceInfo = goods_info.find('div', {'class': 'shopee-item-card__current-price'}).getText().strip('$')
+                        good_maxDealPrice = float(PriceInfo)
                         resultData['AMOUNT'.lower()] = good_maxDealPrice
                     except Exception, e:
                         # logger.error('good_maxDealPrice error: {}'.format(e))
                         resultData['AMOUNT'.lower()] = 0
+
                     resultData['Currency'.lower()] = 'SGD'
                     try:
-                        BeforepriceInfo = goods_info.find('div', {'class': 'info'}).find('span', {'class': "price"}).find('s').getText().strip(' ')
-                        BeforepriceInfo = BeforepriceInfo.split(' ')
-                        good_maxBeforeDealPrice = float(BeforepriceInfo[1])
-                        resultData['Before_AMOUNT'.lower()] = good_maxBeforeDealPrice
+                        good_dealcnt = goods_info.find('div', {'class':"shopee-item-card__btn-like__text"}).getText().strip(' ')
+                        resultData['DISPLAY_COUNT'.lower()] = int(good_dealcnt)
                     except Exception, e:
-                        # logger.error('good_maxBeforeDealPrice error: {}'.format(e))
-                        resultData['Before_AMOUNT'.lower()] = 0
+                        # logger.error('good_dealcnt error: {}'.format(e))
+                        resultData['DISPLAY_COUNT'.lower()] = 0
 
+                    try:
+                        goods_info.find('div', {'class':"shopee-horizontal-badge shopee-preferred-seller-badge"}).getText().strip(' ')
+                        resultData['COMMEND_FLAG'.lower()] = 1
+                    except Exception, e:
+                        # logger.error('good_dealcnt error: {}'.format(e))
+                        resultData['COMMEND_FLAG'.lower()] = 0
                     resultData['CREATE_TIME'.lower()] = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
                     result_datas.append(resultData)
                 except Exception, e:
@@ -138,7 +159,7 @@ class CaptureEzbug(CaptureBase):
             return result_datas
         except Exception, e:
             # logger.error('getGoodInfos error:{},retry it'.format(e))
-            # logger.error('category: {},pageurl：{}'.format(category, pageurl))
+            logger.error('category: {},pageurl：{}'.format(category, pageurl))
             # logger.error('page_source: {}'.format(page_source))
             raise
 
@@ -154,19 +175,36 @@ class CaptureEzbug(CaptureBase):
     '''
     @retry(stop_max_attempt_number=5, wait_fixed=3000)
     def __get_department(self):
+        format_main = 'https://shopee.sg/{}-cat.{}'
+        format_sub = 'https://shopee.sg/{}-cat.{}.{}'
         try:
             results = []
-            html = self.getHtmlselenium(self.home_url)
-            soup = BeautifulSoup(html, 'lxml')
-            catalogs = soup.find('ul', {'class': 'navs', 'id': 'webNavs'}).findAll('li')
-            for catalog in catalogs:
-                url = catalog.find('a').attrs['href']
-                kind = catalog.find('a').find('span', {'class': 'nav-text'}).getText().strip(' ')
-                if kind not in self.white_department:
-                    logger.error('kind {} not in white_department'.format(kind.encode('utf-8')))
+            page_source = self.getHtml(self.department_url, self.header)
+            page_infos = json.loads(page_source)
+            for page_info in page_infos:
+                #main
+                category = page_info[u'main'][u'display_name'].encode('utf-8')
+                cat_id = page_info[u'main'][u'catid']
+                if category not in self.white_department:
                     continue
-                result = [kind.encode('utf-8'), url]
-                results.append(result)
+                if category.find(' & ') != -1:
+                    tmp = category.replace(' & ', '-')
+                else:
+                    tmp = category.replace(' ', '-')
+                url = format_main.format(tmp, cat_id)
+                results.append([category, url])
+                #sub
+                if self.add_sub:
+                    sub_categorys = page_info[u'sub']
+                    for sub_category in sub_categorys:
+                        category = sub_category[u'display_name'].encode('utf-8')
+                        sub_cat_id = sub_category[u'catid']
+                        if category.find(' & ') != -1:
+                            tmp = category.replace(' & ', '-')
+                        else:
+                            tmp = category.replace(' ', '-')
+                        url = format_sub.format(tmp, cat_id, sub_cat_id)
+                        results.append([category, url])
             return results
         except Exception, e:
             logger.error('__get_department error: {}, retry it'.format(e))
@@ -199,7 +237,7 @@ class CaptureEzbug(CaptureBase):
             good_datas = resultDatas
             select_sql = format_select.format(self.TABLE_NAME_PRODUCT)
             table = self.TABLE_NAME_PRODUCT
-            replace_insert_columns = ['CHANNEL','KIND','SITE','PRODUCT_ID','LINK','MAIN_IMAGE','NAME','DETAIL_IMAGE','DESCRIPTION','Currency','AMOUNT','Before_AMOUNT','CREATE_TIME','STATUS']
+            replace_insert_columns = ['CHANNEL','KIND','SITE','PRODUCT_ID','LINK','MAIN_IMAGE','NAME','COMMEND_FLAG', 'Currency','AMOUNT','Before_AMOUNT','CREATE_TIME','STATUS']
             select_columns = ['ID', 'STATUS']
             return self._saveDatas(good_datas, table, select_sql, replace_insert_columns, select_columns)
         except Exception, e:
@@ -207,7 +245,31 @@ class CaptureEzbug(CaptureBase):
         finally:
             logger.info('dealCategorys end')
 
-
+    @retry(stop_max_attempt_number=3, wait_fixed=2000)
+    def _getHtmlselenium(self, url):
+        driver = None
+        try:
+            dcap = dict(DesiredCapabilities.PHANTOMJS)
+            dcap["phantomjs.page.settings.userAgent"] = self.user_agent
+            dcap["phantomjs.page.settings.loadImages"] = False#禁止加载图片
+            #使用chrom  phantomjs失败
+            driver = webdriver.Chrome(executable_path=self.chrome_path)
+            #加载页面的超时时间
+            driver.set_page_load_timeout(60)
+            driver.set_script_timeout(60)
+            driver.get(url)
+            time.sleep(120)
+            driver.implicitly_wait(30)
+            page = driver.page_source.encode('utf-8') if isinstance(driver.page_source, (str, unicode))\
+                else driver.page_source
+            logger.debug('driver.page_source: {}'.format(page))
+            return page
+        except Exception, e:
+            logger.error('getHtmlselenium error:{},retry it'.format(e))
+            raise
+        finally:
+            if driver:
+                driver.quit()
     '''
     function: 获取并存储首页滚动栏的商品信息
     @return: True or raise
@@ -216,28 +278,27 @@ class CaptureEzbug(CaptureBase):
     def dealHomeGoods(self):
         result_datas = []
         try:
-            #format 格式化里面有大括号
-            format_str = r'{{"activityId":0,"areaName":"firstScreenArea_A",{}}}'
-            page_source = self.getHtml(self.home_url, self.header)
-            pattern = re.compile(r'\{"activityId":0,"areaName":"firstScreenArea_A",(.*?)\}', re.M)
-            pre_load_data = pattern.findall(page_source)
-            pre_load_data = [eval(format_str.format(data).replace(':true', ':True')) for data in pre_load_data]
+            page_source = self._getHtmlselenium(self.home_url)
+            soup = BeautifulSoup(page_source, 'lxml')
+            pre_load_data = soup.find('div', {'class': 'image-carousel__item-list-wrapper'}).findAll('li', {'class': 'image-carousel__item'})
             for load_data in pre_load_data:
                 try:
                     logger.debug('load_data: {}'.format(load_data))
                     resultData = {}
                     resultData['CHANNEL'.lower()] = self.Channel
                     resultData['STATUS'.lower()] = '01'
-                    resultData['LINK'.lower()] = load_data['link']
-                    resultData['TITLE'.lower()] = load_data['name']
-                    resultData['MAIN_IMAGE'.lower()] = load_data['imageURL']
+                    resultData['LINK'.lower()] = urljoin(self.home_url, load_data.find('a', {'class': 'home-banners__banner-image'}).attrs['href'])
+                    image_info = load_data.find('div', {'class': 'lazy-image__image'}).attrs['style']
+                    pattern = re.compile('\(.*?\)')
+                    pre_load_data = pattern.findall(image_info)[0]
+                    resultData['MAIN_IMAGE'.lower()] = pre_load_data[2:-2]
                     resultData['CREATE_TIME'.lower()] = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
                     result_datas.append(resultData)
                 except Exception, e:
-                    #应该是遇到了一张图片对应多个url商品链接的情况
                     logger.error('get eLement error:{}'.format(e))
                     logger.error('goodData: {}'.format(load_data))
                     continue
+            result_datas = self._rm_duplicate(result_datas, 'LINK'.lower())
             if len(result_datas) == 0:
                 logger.error('page_source: {}'.format(page_source))
                 raise ValueError('not get valid data')
@@ -260,17 +321,15 @@ def main():
     # proxy = objCrawlingProxy.getRandomProxy()
     # objCaptureAmazon = CaptureAmazon(useragent,proxy)
 
-    objCaptureEzbug = CaptureEzbug(useragent)
+    objCaptureShopee = CaptureShopee(useragent)
     # 获取所有类别id
-    # objCaptureEzbug.get_department()
+    # objCaptureShopee.get_department()
     # 查询并入库所有类别的商品信息
-    objCaptureEzbug.dealCategorys()
-    # objCaptureEzbug.dealCategory(['Women\'s Clothing', '/category/5?ezspm=1.20000006.3.0.5'])
-    # print objCaptureEzbug.getGoodInfos('Women\'s Clothing', 'https://ezbuy.sg/category/5?ezspm=1.10000000.3.0.5&offset=56')
+    objCaptureShopee.dealCategorys()
     # # 查询并入库首页推荐商品信息
-    objCaptureEzbug.dealHomeGoods()
-    # html = objCaptureEzbug.getHtmlselenium('https://ezbuy.sg/product/18978258.html?categoryid=10&ezspm=1.20000006.22.0.0')
-    # print objCaptureEzbug.getHtmlselenium('https://ezbuy.sg/category/5?ezspm=1.10000000.3.0.5&offset=0')
+    objCaptureShopee.dealHomeGoods()
+    # print objCaptureShopee.getHtml('https://shopee.sg/Men\'s-Shoes-cat.168',objCaptureShopee.header)
+    # print objCaptureShopee.getHtmlselenium('https://shopee.sg')
     endTime = datetime.now()
     print 'seconds', (endTime - startTime).seconds
 if __name__ == '__main__':

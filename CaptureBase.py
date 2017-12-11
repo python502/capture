@@ -7,7 +7,7 @@
 # @File    : CaptureBase.py
 # @Software: PyCharm
 # @Desc    :
-
+import re
 import os
 import urllib2
 import zlib
@@ -28,6 +28,7 @@ class CaptureBase(object):
     TABLE_NAME_RATE = 'exchange_rate_raw'
     def __init__(self, user_agent, proxy_ip=None):
         self.phantomjs_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'phantomjs.exe')
+        self.chrome_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'chromedriver.exe')
         self.user_agent = user_agent
         self.proxy_ip = proxy_ip
         self.mysql = MysqldbOperate(DICT_MYSQL)
@@ -111,7 +112,7 @@ class CaptureBase(object):
             else:
                 logger.debug('getHtml: url:{} getcode isn\'t 200,{}'.format(url, con.getcode()))
                 raise ValueError()
-        except Exception,e:
+        except Exception, e:
             logger.error('getHtml error: {}.'.format(e))
             raise
 
@@ -213,3 +214,14 @@ class CaptureBase(object):
         except Exception, e:
             logger.error('saveDatas error: {}.'.format(e))
             return False
+
+    @staticmethod
+    def filter_emoji(desstr, restr=''):
+        '''''
+        过滤表情
+        '''
+        try:
+            co = re.compile(u'[\U00010000-\U0010ffff]')
+        except re.error:
+            co = re.compile(u'[\uD800-\uDBFF][\uDC00-\uDFFF]')
+        return co.sub(restr, desstr)
