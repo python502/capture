@@ -8,6 +8,7 @@
 # @Software: PyCharm
 # @Desc    :
 import re
+import time
 import os
 import urllib2
 import zlib
@@ -47,7 +48,7 @@ class CaptureBase(object):
     @return: html
     '''
     @retry(stop_max_attempt_number=3, wait_fixed=2000)
-    def getHtmlselenium(self, url):
+    def getHtmlselenium(self, url, browser='phantomjs', sleep=0):
         driver = None
         try:
             # # 全请求头设定
@@ -58,12 +59,19 @@ class CaptureBase(object):
             dcap = dict(DesiredCapabilities.PHANTOMJS)
             dcap["phantomjs.page.settings.userAgent"] = self.user_agent
             dcap["phantomjs.page.settings.loadImages"] = False#禁止加载图片
-            driver = webdriver.PhantomJS(executable_path=self.phantomjs_path)
+            if browser == 'phantomjs':
+                driver = webdriver.PhantomJS(executable_path=self.phantomjs_path)
+            elif browser == 'chrome':
+                driver = webdriver.Chrome(executable_path=self.chrome_path)
+            else:
+                logger.error('error browser type: {},must be phantomjs or chrome'.format(browser))
+                raise ValueError("browser type error")
             #加载页面的超时时间
-            driver.set_page_load_timeout(60)
-            driver.set_script_timeout(60)
+            driver.set_page_load_timeout(30)
+            driver.set_script_timeout(30)
             driver.get(url)
-            driver.implicitly_wait(30)
+            time.sleep(sleep)
+            driver.implicitly_wait(10)
             page = driver.page_source.encode('utf-8') if isinstance(driver.page_source, (str, unicode)) else driver.page_source
             logger.debug('driver.page_source: {}'.format(page))
             return page

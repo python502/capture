@@ -244,32 +244,6 @@ class CaptureShopee(CaptureBase):
             logger.error('dealCategorys error: {}'.format(e))
         finally:
             logger.info('dealCategorys end')
-
-    @retry(stop_max_attempt_number=3, wait_fixed=2000)
-    def _getHtmlselenium(self, url):
-        driver = None
-        try:
-            dcap = dict(DesiredCapabilities.PHANTOMJS)
-            dcap["phantomjs.page.settings.userAgent"] = self.user_agent
-            dcap["phantomjs.page.settings.loadImages"] = False#禁止加载图片
-            #使用chrom  phantomjs失败
-            driver = webdriver.Chrome(executable_path=self.chrome_path)
-            #加载页面的超时时间
-            driver.set_page_load_timeout(60)
-            driver.set_script_timeout(60)
-            driver.get(url)
-            time.sleep(120)
-            driver.implicitly_wait(30)
-            page = driver.page_source.encode('utf-8') if isinstance(driver.page_source, (str, unicode))\
-                else driver.page_source
-            logger.debug('driver.page_source: {}'.format(page))
-            return page
-        except Exception, e:
-            logger.error('getHtmlselenium error:{},retry it'.format(e))
-            raise
-        finally:
-            if driver:
-                driver.quit()
     '''
     function: 获取并存储首页滚动栏的商品信息
     @return: True or raise
@@ -278,7 +252,7 @@ class CaptureShopee(CaptureBase):
     def dealHomeGoods(self):
         result_datas = []
         try:
-            page_source = self._getHtmlselenium(self.home_url)
+            page_source = self.getHtmlselenium(self.home_url, 'chrome', 120)
             soup = BeautifulSoup(page_source, 'lxml')
             pre_load_data = soup.find('div', {'class': 'image-carousel__item-list-wrapper'}).findAll('li', {'class': 'image-carousel__item'})
             for load_data in pre_load_data:
@@ -325,7 +299,7 @@ def main():
     # 获取所有类别id
     # objCaptureShopee.get_department()
     # 查询并入库所有类别的商品信息
-    objCaptureShopee.dealCategorys()
+    # objCaptureShopee.dealCategorys()
     # # 查询并入库首页推荐商品信息
     objCaptureShopee.dealHomeGoods()
     # print objCaptureShopee.getHtml('https://shopee.sg/Men\'s-Shoes-cat.168',objCaptureShopee.header)

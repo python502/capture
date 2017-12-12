@@ -217,20 +217,22 @@ class CaptureEzbug(CaptureBase):
         result_datas = []
         try:
             #format 格式化里面有大括号
-            format_str = r'{{"activityId":0,"areaName":"firstScreenArea_A",{}}}'
-            page_source = self.getHtml(self.home_url, self.header)
-            pattern = re.compile(r'\{"activityId":0,"areaName":"firstScreenArea_A",(.*?)\}', re.M)
-            pre_load_data = pattern.findall(page_source)
-            pre_load_data = [eval(format_str.format(data).replace(':true', ':True')) for data in pre_load_data]
+            # format_str = r'{{"activityId":0,"areaName":"firstScreenArea_A",{}}}'
+            # page_source = self.getHtml(self.home_url, self.header)
+            # pattern = re.compile(r'\{"activityId":0,"areaName":"firstScreenArea_A",(.*?)\}', re.M)
+            # pre_load_data = pattern.findall(page_source)
+            # pre_load_data = [eval(format_str.format(data).replace(':true', ':True')) for data in pre_load_data]
+            page_source = self.getHtmlselenium(self.home_url)
+            soup = BeautifulSoup(page_source, 'lxml')
+            pre_load_data = soup.find('div', {'class': 'pcBetterSwipe'}).findAll('a', {'target': '_blank'})
             for load_data in pre_load_data:
                 try:
                     logger.debug('load_data: {}'.format(load_data))
                     resultData = {}
                     resultData['CHANNEL'.lower()] = self.Channel
                     resultData['STATUS'.lower()] = '01'
-                    resultData['LINK'.lower()] = load_data['link']
-                    resultData['TITLE'.lower()] = load_data['name']
-                    resultData['MAIN_IMAGE'.lower()] = load_data['imageURL']
+                    resultData['LINK'.lower()] = urljoin(self.home_url, load_data.attrs['href'])
+                    resultData['MAIN_IMAGE'.lower()] = urljoin(self.home_url, load_data.find('img').attrs['src'])
                     resultData['CREATE_TIME'.lower()] = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
                     result_datas.append(resultData)
                 except Exception, e:
@@ -238,6 +240,7 @@ class CaptureEzbug(CaptureBase):
                     logger.error('get eLement error:{}'.format(e))
                     logger.error('goodData: {}'.format(load_data))
                     continue
+            result_datas = self._rm_duplicate(result_datas, 'LINK'.lower())
             if len(result_datas) == 0:
                 logger.error('page_source: {}'.format(page_source))
                 raise ValueError('not get valid data')
@@ -246,7 +249,7 @@ class CaptureEzbug(CaptureBase):
             good_datas = result_datas
             select_sql = format_select.format(self.TABLE_NAME_BANNER)
             table = self.TABLE_NAME_BANNER
-            replace_insert_columns = ['CHANNEL', 'LINK', 'TITLE', 'MAIN_IMAGE', 'CREATE_TIME', 'STATUS']
+            replace_insert_columns = ['CHANNEL', 'LINK', 'MAIN_IMAGE', 'CREATE_TIME', 'STATUS']
             select_columns = ['ID']
             return self._saveDatas(good_datas, table, select_sql, replace_insert_columns, select_columns)
         except Exception, e:
@@ -264,7 +267,7 @@ def main():
     # 获取所有类别id
     # objCaptureEzbug.get_department()
     # 查询并入库所有类别的商品信息
-    objCaptureEzbug.dealCategorys()
+    # objCaptureEzbug.dealCategorys()
     # objCaptureEzbug.dealCategory(['Women\'s Clothing', '/category/5?ezspm=1.20000006.3.0.5'])
     # print objCaptureEzbug.getGoodInfos('Women\'s Clothing', 'https://ezbuy.sg/category/5?ezspm=1.10000000.3.0.5&offset=56')
     # # 查询并入库首页推荐商品信息
