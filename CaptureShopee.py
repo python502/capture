@@ -299,7 +299,7 @@ def main():
     # 获取所有类别id
     # objCaptureShopee.get_department()
     # 查询并入库所有类别的商品信息
-    # objCaptureShopee.dealCategorys()
+    objCaptureShopee.dealCategorys()
     # # 查询并入库首页推荐商品信息
     objCaptureShopee.dealHomeGoods()
     # print objCaptureShopee.getHtml('https://shopee.sg/Men\'s-Shoes-cat.168',objCaptureShopee.header)

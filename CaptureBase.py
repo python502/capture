@@ -48,7 +48,7 @@ class CaptureBase(object):
     @return: html
     '''
     @retry(stop_max_attempt_number=3, wait_fixed=2000)
-    def getHtmlselenium(self, url, browser='phantomjs', sleep=0):
+    def getHtmlselenium(self, url, browser='phantomjs', sleep_time=0):
         driver = None
         try:
             # # 全请求头设定
@@ -70,7 +70,7 @@ class CaptureBase(object):
             driver.set_page_load_timeout(30)
             driver.set_script_timeout(30)
             driver.get(url)
-            time.sleep(sleep)
+            time.sleep(sleep_time)
             driver.implicitly_wait(10)
             page = driver.page_source.encode('utf-8') if isinstance(driver.page_source, (str, unicode)) else driver.page_source
             logger.debug('driver.page_source: {}'.format(page))
