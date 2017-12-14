@@ -27,7 +27,6 @@ from urlparse import urljoin
 class CaptureAmazon(CaptureBase):
     department_url = 'https://www.amazon.com/gp/goldbox/'
     home_url = 'https://www.amazon.com/'
-    phantomjs_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'phantomjs.exe')
     white_department = [ u'Arts, Crafts &amp; Sewing', u'Automotive & Motorcycle', u'Baby', u'Baby Clothing & Accessories', u'Beauty',\
                          u'Boys’ Fashion', u'Camera & Photo', u'Cell Phones & Accessories', u'Computers & Accessories', u'Costumes & Accessories',\
                          u'DIY & Tools', u'Electronics', u'Furniture', u'Girls’ Fashion', u'Grocery',\

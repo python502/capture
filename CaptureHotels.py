@@ -23,7 +23,6 @@ from datetime import datetime
 class CaptureHotels(CaptureBase):
     #中国香港
     # home_url = 'https://www.hotels.com/'
-
     #新加坡#美国
     home_url = 'https://www.hotels.com/?locale=c.._U0pp5u1Sjg.&pos=c..6-R09f_2ERhFDT1a1lxE3Q..'
     destination_popular = 'https://www.hotels.com/landing/web/component/linkblocks/destination-popular-hotels'

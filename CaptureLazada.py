@@ -26,7 +26,6 @@ from urlparse import urljoin
 class CaptureLazada(CaptureBase):
     department_url = 'https://www.lazada.sg/catalog/?q=sale'
     home_url = 'https://www.lazada.sg'
-    phantomjs_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'phantomjs.exe')
     white_department = [ u'Mobiles & Tablets', u'Health & Beauty', u'Toys & Games', u'Furniture & D\xe9cor', u'Sports & Outdoors',\
                          u'Watches Sunglasses Jewellery', u'Fashion', u'Tools, DIY & Outdoor', u'Kitchen & Dining', u'Motors',\
                          u'TV, Audio / Video, Gaming & Wearables', u'Computers & Laptops', u'Bags and Travel', u'Stationery & Craft',\
@@ -233,7 +232,7 @@ def main():
 
     objCaptureLazada = CaptureLazada(useragent)
     # 获取所有类别id
-    # objCaptureLazada.get_department()
+    objCaptureLazada.get_department()
     # 查询并入库所有类别的商品信息
     objCaptureLazada.dealCategorys()
     # objCaptureLazada.dealCategory(['Groceries', '/groceries/?q=sale', 19961])

@@ -30,7 +30,6 @@ class CaptureRedmart(CaptureBase):
     home_url = 'https://redmart.com/'
     product_url = 'https://redmart.com/product/'
     img_url = 'https://s3-ap-southeast-1.amazonaws.com/media.redmart.com/newmedia/150x/'
-    phantomjs_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'phantomjs.exe')
     white_department = ['RedMart Label', 'Christmas Shop', 'Fruit & Veg', 'Dairy & Chilled', 'Frozen',\
                         'Beverages', 'Food Cupboard', 'Meat & Seafood', 'Bakery', 'Beer, Wine & Spirits',\
                          'Health & Beauty', 'Household & Pet', 'Baby, Kids & Toys', 'Home & Outdoor']
