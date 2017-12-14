@@ -293,7 +293,7 @@ def main():
 
     objCaptureTaobao = CaptureTaobao(useragent)
     # 获取所有类别url
-    # objCaptureTaobao.get_department()
+    objCaptureTaobao.get_department()
     # objCaptureTaobao.getHtmlselenium('https://world.taobao.com/')
 
     #查询并入库所有类别的商品信息

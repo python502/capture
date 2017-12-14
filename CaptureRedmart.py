@@ -93,7 +93,8 @@ class CaptureRedmart(CaptureBase):
                     result_data['STATUS'.lower()] = '01'
                     result_data['PRODUCT_ID'.lower()] = good['sku']
                     result_data['LINK'.lower()] = urljoin(self.product_url, good['details']['uri'])
-                    result_data['MAIN_IMAGE'.lower()] = urljoin(self.img_url, good['img']['name'])
+                    # result_data['MAIN_IMAGE'.lower()] = urljoin(self.img_url, good['img']['name'])
+                    result_data['MAIN_IMAGE'.lower()] = self.img_url+ good['img']['name'][1:]
                     result_data['NAME'.lower()] = good['title']
                     result_data['RESERVE'.lower()] = good['pricing'].get('savings_text')
                     result_data['Currency'.lower()] = 'USD'

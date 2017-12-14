@@ -276,7 +276,7 @@ class CaptureHotels(CaptureBase):
             logger.error('getHotelInfos category: {}, pageurl：{}'.format(category, pageurl))
             raise
 
-
+file.read()
 def main():
     startTime = datetime.now()
     # objCrawlingProxy = CrawlingProxy()
