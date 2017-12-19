@@ -224,7 +224,8 @@ class CaptureEzbug(CaptureBase):
             # pre_load_data = [eval(format_str.format(data).replace(':true', ':True')) for data in pre_load_data]
             page_source = self.getHtmlselenium(self.home_url)
             soup = BeautifulSoup(page_source, 'lxml')
-            pre_load_data = soup.find('div', {'class': 'pcBetterSwipe'}).findAll('a', {'target': '_blank'})
+            # pre_load_data = soup.find('div', {'class': 'pcBetterSwipe'}).findAll('a', {'target': '_blank'})
+            pre_load_data = soup.find('div', {'class': 'bannerWithHoverButtonWrapper'}).findAll('a', {'target': '_blank'})
             for load_data in pre_load_data:
                 try:
                     logger.debug('load_data: {}'.format(load_data))

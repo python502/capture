@@ -17,6 +17,12 @@ from bs4 import BeautifulSoup
 from retrying import retry
 from datetime import datetime
 from CaptureBase import CaptureBase
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+from selenium import webdriver
+
+class TimeoutException(Exception):
+    def __init__(self, err='operation timed out'):
+        super(TimeoutException, self).__init__(err)
 
 class CaptureTaobao(CaptureBase):
     home_url = 'https://world.taobao.com/'
@@ -113,19 +119,49 @@ class CaptureTaobao(CaptureBase):
         except Exception, e:
             logger.error('dealCategorys error: {}'.format(e))
 
-
+    @retry(stop_max_attempt_number=10, wait_fixed=2000)
+    def __getHtmlselenium(self, url):
+        driver = None
+        try:
+            driver = webdriver.PhantomJS(executable_path=self.phantomjs_path)
+            #加载页面的超时时间
+            driver.set_page_load_timeout(30)
+            driver.set_script_timeout(30)
+            driver.get(url)
+            driver.implicitly_wait(10)
+            driver.find_element_by_xpath('//*[@id="mainsrp-itemlist"]/div/div/div[1]')
+            page = driver.page_source.encode('utf-8') if isinstance(driver.page_source, (str, unicode)) else driver.page_source
+            logger.debug('driver.page_source: {}'.format(page))
+            return page
+        except Exception, e:
+            # logger.error('__getHtmlselenium error:{},retry it'.format(e))
+            raise
+        finally:
+            if driver:
+                driver.quit()
     '''
     function: 获取单页商品信息
     @category： 分类名
     @firsturl： 商品页url
     @return: True or False or raise
     '''
-    @retry(stop_max_attempt_number=3, wait_fixed=2000)
+    # @retry(stop_max_attempt_number=3, wait_fixed=2000)
     def getGoodInfos(self, category, pageurl, num):
         try:
             logger.debug('pageurl: {}'.format(pageurl))
             result_datas = []
-            page_source = self.getHtmlselenium(pageurl)
+            timeout = 600
+            startTime = datetime.now()
+            endTime = datetime.now()
+            while (endTime - startTime).seconds < timeout:
+                try:
+                    page_source = self.__getHtmlselenium(pageurl)
+                    break
+                except Exception:
+                    endTime = datetime.now()
+                    continue
+            else:
+                raise TimeoutException('getGoodInfos timeout')
             soup = BeautifulSoup(page_source, 'lxml')
             goods_infos = soup.select('div .item.J_MouserOnverReq')
             len_goods = len(goods_infos)
@@ -199,7 +235,7 @@ class CaptureTaobao(CaptureBase):
                 raise ValueError('get result_datas error')
             return result_datas
         except Exception, e:
-            logger.error('getGoodInfos error:{},retry it'.format(e))
+            logger.error('getGoodInfos error:{}'.format(e))
             raise
 
     '''
@@ -208,11 +244,21 @@ class CaptureTaobao(CaptureBase):
     @firsturl： 分类首页url
     @return: True or False or raise
     '''
-    @retry(stop_max_attempt_number=3, wait_fixed=2000)
     def dealCategory(self, category, firsturl):
         goods_infos = []
         try:
-            page_infos = self.getPageInfos(firsturl)
+            timeout = 120
+            startTime = datetime.now()
+            endTime = datetime.now()
+            while (endTime - startTime).seconds < timeout:
+                try:
+                    page_infos = self.getPageInfos(firsturl)
+                    break
+                except Exception:
+                    endTime = datetime.now()
+                    continue
+            else:
+                raise TimeoutException('dealCategory timeout')
             total_page = page_infos['totalPage']
             page_size = page_infos['pageSize']
             for i in range(min(total_page, self.get_page)):
@@ -236,12 +282,17 @@ class CaptureTaobao(CaptureBase):
     function: 获取分类商品信息(pageSize,totalPage,currentPage,totalCount)
     @return: dict or None
     '''
+    # @retry(stop_max_attempt_number=5, wait_fixed=2000)
     def getPageInfos(self, good_url):
-        html = self.getHtml(good_url, self.header)
-        pattern = re.compile(r'"pager":\{"pageSize":\d+,"totalPage":\d+,"currentPage":\d+,"totalCount":\d+\}', re.M)
-        infos = json.loads(pattern.findall(html)[0][8:])
-        #{u'currentPage': 1, u'totalPage': 100, u'pageSize': 44, u'totalCount': 7718071}
-        return infos
+        try:
+            html = self.getHtml(good_url, self.header)
+            pattern = re.compile(r'"pager":\{"pageSize":\d+,"totalPage":\d+,"currentPage":\d+,"totalCount":\d+\}', re.M)
+            infos = json.loads(pattern.findall(html)[0][8:])
+            #{u'currentPage': 1, u'totalPage': 100, u'pageSize': 44, u'totalCount': 7718071}
+            return infos
+        except Exception,e:
+            # logger.error('getPageInfos good_url:{} error: {}'.format(good_url, e))
+            raise
 
     '''
     function: 获取并存储首页滚动栏的商品信息
@@ -293,14 +344,14 @@ def main():
 
     objCaptureTaobao = CaptureTaobao(useragent)
     # 获取所有类别url
-    objCaptureTaobao.get_department()
+    # objCaptureTaobao.get_department()
     # objCaptureTaobao.getHtmlselenium('https://world.taobao.com/')
 
     #查询并入库所有类别的商品信息
     objCaptureTaobao.dealCategorys()
 
     # 查询并入库首页推荐商品信息
-    objCaptureTaobao.dealHomeGoods()
+    # objCaptureTaobao.dealHomeGoods()
 
     #查询商品总信息 例如总页数 总条数
     # objCaptureTaobao.getPageInfos(u'https://s.taobao.com/search?spm=a21wu.241046-cn.6977698868.5.2816e72eg2pkH9&q=%E5%A5%B3%E8%A3%85&acm=lb-zebra-241046-2058600.1003.4.1797247&scm=1003.4.lb-zebra-241046-2058600.OTHER_14950676920071_1797247')

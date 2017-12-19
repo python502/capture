@@ -56,10 +56,11 @@ class CaptureBase(object):
             # cap = DesiredCapabilities.PHANTOMJS.copy()
             # for key, value in self.header.items():
             #     cap['phantomjs.page.customHeaders.{}'.format(key)] = value
-            dcap = dict(DesiredCapabilities.PHANTOMJS)
-            dcap["phantomjs.page.settings.userAgent"] = self.user_agent
-            dcap["phantomjs.page.settings.loadImages"] = False#禁止加载图片
+
             if browser == 'phantomjs':
+                # dcap = dict(DesiredCapabilities.PHANTOMJS)
+                # dcap["phantomjs.page.settings.userAgent"] = self.user_agent
+                # dcap["phantomjs.page.settings.loadImages"] = False  # 禁止加载图片
                 driver = webdriver.PhantomJS(executable_path=self.phantomjs_path)
             elif browser == 'chrome':
                 driver = webdriver.Chrome(executable_path=self.chrome_path)
@@ -110,6 +111,7 @@ class CaptureBase(object):
         try:
             req = urllib2.Request(url=url, headers=header, data=data)
             con = self.__urlOpenRetry(req)
+
             if 200 == con.getcode():
                 doc = con.read()
                 if con.headers.get('Content-Encoding'):

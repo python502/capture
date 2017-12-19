@@ -193,9 +193,6 @@ class CaptureHotels(CaptureBase):
         from selenium import webdriver
         driver = None
         try:
-            dcap = dict(DesiredCapabilities.PHANTOMJS)
-            dcap["phantomjs.page.settings.userAgent"] = self.user_agent
-            dcap["phantomjs.page.settings.loadImages"] = False#禁止加载图片
             driver = webdriver.PhantomJS(executable_path=self.phantomjs_path)
             #加载页面的超时时间
             driver.set_page_load_timeout(30)
@@ -209,7 +206,6 @@ class CaptureHotels(CaptureBase):
                     break
                 except Exception, e:
                     time.sleep(1)
-                    pass
                 endTime = datetime.now()
             driver.implicitly_wait(10)
             page = driver.page_source.encode('utf-8') if isinstance(driver.page_source, (str, unicode)) else driver.page_source
@@ -275,7 +271,6 @@ class CaptureHotels(CaptureBase):
             logger.error('getHotelInfos category: {}, pageurl：{}'.format(category, pageurl))
             raise
 
-file.read()
 def main():
     startTime = datetime.now()
     # objCrawlingProxy = CrawlingProxy()
@@ -287,7 +282,7 @@ def main():
     objCaptureHotels.dealCategorys()
     # objCaptureHotels.getHotelInfos('Hong Kong Hotels', 'https://www.hotels.com/de606379/hotels-hong-kong-hong-kong/')
     # # 查询并入库首页推荐商品信息
-    # objCaptureHotels.dealHomeGoods()
+    objCaptureHotels.dealHomeGoods()
     import urllib
     # data = {"uuid":"9603a59b-569d-4d5a-8afe-a5ef40e8d5d6","context":"https://www.hotels.com/de726784/hotels-tokyo-japan/"}
     # print objCaptureHotels.getHtml('https://www.hotels.com/landing/web/component/linkblocks/destination-popular-hotels', data)
