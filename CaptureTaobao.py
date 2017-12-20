@@ -41,6 +41,7 @@ class CaptureTaobao(CaptureBase):
     def __init__(self, user_agent, proxy_ip=None):
         super(CaptureTaobao, self).__init__(user_agent, proxy_ip)
         self.get_page = 3
+        self.currency = 'CNY'
         self.header = self._getDict4str(self.HEADER.format(self.user_agent))
 
     def __del__(self):
@@ -119,58 +120,153 @@ class CaptureTaobao(CaptureBase):
         except Exception, e:
             logger.error('dealCategorys error: {}'.format(e))
 
-    @retry(stop_max_attempt_number=10, wait_fixed=2000)
-    def __getHtmlselenium(self, url):
-        driver = None
-        try:
-            driver = webdriver.PhantomJS(executable_path=self.phantomjs_path)
-            #加载页面的超时时间
-            driver.set_page_load_timeout(30)
-            driver.set_script_timeout(30)
-            driver.get(url)
-            driver.implicitly_wait(10)
-            driver.find_element_by_xpath('//*[@id="mainsrp-itemlist"]/div/div/div[1]')
-            page = driver.page_source.encode('utf-8') if isinstance(driver.page_source, (str, unicode)) else driver.page_source
-            logger.debug('driver.page_source: {}'.format(page))
-            return page
-        except Exception, e:
-            # logger.error('__getHtmlselenium error:{},retry it'.format(e))
-            raise
-        finally:
-            if driver:
-                driver.quit()
+    # @retry(stop_max_attempt_number=10, wait_fixed=2000)
+    # def __getHtmlselenium(self, url):
+    #     driver = None
+    #     try:
+    #         driver = webdriver.PhantomJS(executable_path=self.phantomjs_path)
+    #         #加载页面的超时时间
+    #         driver.set_page_load_timeout(30)
+    #         driver.set_script_timeout(30)
+    #         driver.get(url)
+    #         driver.implicitly_wait(10)
+    #         driver.find_element_by_xpath('//*[@id="mainsrp-itemlist"]/div/div/div[1]')
+    #         page = driver.page_source.encode('utf-8') if isinstance(driver.page_source, (str, unicode)) else driver.page_source
+    #         logger.debug('driver.page_source: {}'.format(page))
+    #         return page
+    #     except Exception, e:
+    #         # logger.error('__getHtmlselenium error:{},retry it'.format(e))
+    #         raise
+    #     finally:
+    #         if driver:
+    #             driver.quit()
+    # '''
+    # function: 获取单页商品信息
+    # @category： 分类名
+    # @firsturl： 商品页url
+    # @return: True or False or raise
+    # '''
+    # # @retry(stop_max_attempt_number=3, wait_fixed=2000)
+    # def getGoodInfos(self, category, pageurl, num):
+    #     try:
+    #         logger.debug('pageurl: {}'.format(pageurl))
+    #         result_datas = []
+    #         timeout = 600
+    #         startTime = datetime.now()
+    #         endTime = datetime.now()
+    #         while (endTime - startTime).seconds < timeout:
+    #             try:
+    #                 page_source = self.__getHtmlselenium(pageurl)
+    #                 break
+    #             except Exception:
+    #                 endTime = datetime.now()
+    #                 continue
+    #         else:
+    #             raise TimeoutException('getGoodInfos timeout')
+    #         soup = BeautifulSoup(page_source, 'lxml')
+    #         goods_infos = soup.select('div .item.J_MouserOnverReq')
+    #         len_goods = len(goods_infos)
+    #         # if num and len_goods != num:
+    #         #     #会出现第一页只能加载36条记录的情况
+    #         #     raise ValueError('get goods_infos{} not equal hope num{}'.format(len_goods, num))
+    #         #只取前44条记录，后4条有可能和下一页重复
+    #         # if len_goods == 48:
+    #         #     goods_infos = goods_infos[:44]
+    #         for goods_info in goods_infos:
+    #             resultData = {}
+    #             resultData['CHANNEL'.lower()] = self.Channel
+    #             resultData['KIND'.lower()] = category
+    #             resultData['SITE'.lower()] = 's.taobao'
+    #             resultData['STATUS'.lower()] = '01'
+    #             try:
+    #                 good_id = goods_info.find_all('a', {'class':"pic-link J_ClickStat J_ItemPicA"})[0].attrs['data-nid']
+    #                 resultData['PRODUCT_ID'.lower()] = good_id
+    #                 good_url = self.good_url.format(good_id)
+    #                 resultData['LINK'.lower()] = good_url
+    #                 good_img_big = goods_info.find_all('img', {'class': "J_ItemPic img"})[0].attrs['data-src']
+    #                 resultData['MAIN_IMAGE'.lower()] = self.http_url.format(good_img_big)
+    #                 good_title = goods_info.find_all('img', {'class': "J_ItemPic img"})[0].attrs['alt']
+    #                 resultData['NAME'.lower()] = good_title
+    #                 try:
+    #                     good_img_small = goods_info.find_all('img', {'class': "J_ItemPic img"})[0].get('src') if goods_info.find_all('img', {'class': "J_ItemPic img"})[0].get('src') else goods_info.find_all('img', {'class': "J_ItemPic img"})[0].get('data-ks-lazyload')
+    #                     resultData['DETAIL_IMAGE'.lower()] = self.http_url.format(good_img_small)
+    #                 except Exception, e:
+    #                     logger.error('good_img_small error: {}'.format(e))
+    #                     logger.error('goods_info: {}'.format(goods_info))
+    #                 try:
+    #                     good_description = goods_info.find_all('a', {'class':"J_ClickStat"})[1].getText().strip().strip('\n')
+    #                     resultData['DESCRIPTION'.lower()] = good_description
+    #                 except Exception, e:
+    #                     logger.error('good_description error: {}'.format(e))
+    #                     # logger.error('goods_info: {}'.format(goods_info))
+    #
+    #                 try:
+    #                     good_maxDealPrice = goods_info.find_all('div', {'class':"price g_price g_price-highlight"})[0].getText().strip('\n').strip('')
+    #                     currency = 'CNY'if good_maxDealPrice.encode('utf-8').startswith('¥') else 'USD'
+    #                     pattern = re.compile(r'\d+.\d+', re.M)
+    #                     good_maxDealPrice = float(pattern.findall(good_maxDealPrice)[0])
+    #
+    #                     resultData['Currency'.lower()] = currency
+    #                     resultData['AMOUNT'.lower()] = good_maxDealPrice
+    #                 except Exception, e:
+    #                     logger.error('good_maxDealPrice error: {}'.format(e))
+    #                     # logger.error('goods_info: {}'.format(goods_info))
+    #                     resultData['Currency'.lower()] = 'USD'
+    #                     resultData['AMOUNT'.lower()] = 0
+    #
+    #                 resultData['CREATE_TIME'.lower()] = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
+    #
+    #                 try:
+    #                     good_dealcnt = goods_info.find_all('div', {'class':"deal-cnt"})[0].getText().strip('\n').strip('')
+    #                     pattern = re.compile(r'^\d+', re.M)
+    #                     good_dealcnt = int(pattern.findall(good_dealcnt)[0])
+    #                     resultData['DISPLAY_COUNT'.lower()] = good_dealcnt
+    #                 except Exception, e:
+    #                     logger.error('good_dealcnt error: {}'.format(e))
+    #                     # logger.error('goods_info: {}'.format(goods_info))
+    #                     resultData['DISPLAY_COUNT'.lower()] = 0
+    #                 result_datas.append(resultData)
+    #             except Exception, e:
+    #                 logger.error('error: {}'.format(e))
+    #                 logger.error('goods_info: {}'.format(goods_info))
+    #                 continue
+    #         if len(goods_infos) != len(result_datas) or not result_datas:
+    #             logger.error('len goods_infos: {},len result_datas: {}'.format(goods_infos, result_datas))
+    #             logger.error('result_datas: {}'.format(result_datas))
+    #             raise ValueError('get result_datas error')
+    #         return result_datas
+    #     except Exception, e:
+    #         logger.error('getGoodInfos error:{}'.format(e))
+    #         raise
     '''
     function: 获取单页商品信息
     @category： 分类名
     @firsturl： 商品页url
     @return: True or False or raise
     '''
-    # @retry(stop_max_attempt_number=3, wait_fixed=2000)
-    def getGoodInfos(self, category, pageurl, num):
+    def getGoodInfos(self, category, pageurl):
         try:
             logger.debug('pageurl: {}'.format(pageurl))
             result_datas = []
-            timeout = 600
+            timeout = 60
             startTime = datetime.now()
             endTime = datetime.now()
             while (endTime - startTime).seconds < timeout:
                 try:
-                    page_source = self.__getHtmlselenium(pageurl)
+                    page_source = self.getHtml(pageurl, self.header)
+                    pattern = re.compile(r'g_page_config = [\s\S]*?\};', re.M)
+                    page_infos = pattern.findall(page_source)[0]
+                    if page_infos.startswith('g_page_config = null;'):
+                        raise ValueError
+                    page_infos = page_infos[16:-1]
+                    page_infos = page_infos.replace('false', 'False').replace('true', 'True')
+                    page_infos = eval(page_infos)
                     break
                 except Exception:
                     endTime = datetime.now()
-                    continue
             else:
                 raise TimeoutException('getGoodInfos timeout')
-            soup = BeautifulSoup(page_source, 'lxml')
-            goods_infos = soup.select('div .item.J_MouserOnverReq')
-            len_goods = len(goods_infos)
-            # if num and len_goods != num:
-            #     #会出现第一页只能加载36条记录的情况
-            #     raise ValueError('get goods_infos{} not equal hope num{}'.format(len_goods, num))
-            #只取前44条记录，后4条有可能和下一页重复
-            # if len_goods == 48:
-            #     goods_infos = goods_infos[:44]
+            goods_infos = page_infos.get('mods').get('itemlist').get('data').get('auctions')
             for goods_info in goods_infos:
                 resultData = {}
                 resultData['CHANNEL'.lower()] = self.Channel
@@ -178,52 +274,27 @@ class CaptureTaobao(CaptureBase):
                 resultData['SITE'.lower()] = 's.taobao'
                 resultData['STATUS'.lower()] = '01'
                 try:
-                    good_id = goods_info.find_all('a', {'class':"pic-link J_ClickStat J_ItemPicA"})[0].attrs['data-nid']
+                    good_id = goods_info['nid']
                     resultData['PRODUCT_ID'.lower()] = good_id
+
                     good_url = self.good_url.format(good_id)
                     resultData['LINK'.lower()] = good_url
-                    good_img_big = goods_info.find_all('img', {'class': "J_ItemPic img"})[0].attrs['data-src']
+
+                    good_img_big = goods_info['pic_url']
                     resultData['MAIN_IMAGE'.lower()] = self.http_url.format(good_img_big)
-                    good_title = goods_info.find_all('img', {'class': "J_ItemPic img"})[0].attrs['alt']
-                    resultData['NAME'.lower()] = good_title
-                    try:
-                        good_img_small = goods_info.find_all('img', {'class': "J_ItemPic img"})[0].get('src') if goods_info.find_all('img', {'class': "J_ItemPic img"})[0].get('src') else goods_info.find_all('img', {'class': "J_ItemPic img"})[0].get('data-ks-lazyload')
-                        resultData['DETAIL_IMAGE'.lower()] = self.http_url.format(good_img_small)
-                    except Exception, e:
-                        logger.error('good_img_small error: {}'.format(e))
-                        logger.error('goods_info: {}'.format(goods_info))
-                    try:
-                        good_description = goods_info.find_all('a', {'class':"J_ClickStat"})[1].getText().strip().strip('\n')
-                        resultData['DESCRIPTION'.lower()] = good_description
-                    except Exception, e:
-                        logger.error('good_description error: {}'.format(e))
-                        # logger.error('goods_info: {}'.format(goods_info))
 
-                    try:
-                        good_maxDealPrice = goods_info.find_all('div', {'class':"price g_price g_price-highlight"})[0].getText().strip('\n').strip('')
-                        currency = 'CNY'if good_maxDealPrice.encode('utf-8').startswith('¥') else 'USD'
-                        pattern = re.compile(r'\d+.\d+', re.M)
-                        good_maxDealPrice = float(pattern.findall(good_maxDealPrice)[0])
+                    resultData['NAME'.lower()] = goods_info['raw_title']
 
-                        resultData['Currency'.lower()] = currency
-                        resultData['AMOUNT'.lower()] = good_maxDealPrice
-                    except Exception, e:
-                        logger.error('good_maxDealPrice error: {}'.format(e))
-                        # logger.error('goods_info: {}'.format(goods_info))
-                        resultData['Currency'.lower()] = 'USD'
-                        resultData['AMOUNT'.lower()] = 0
+                    resultData['DESCRIPTION'.lower()] = goods_info.get('nick')
+                    resultData['Currency'.lower()] = self.currency
+                    resultData['AMOUNT'.lower()] = goods_info['view_price']
 
                     resultData['CREATE_TIME'.lower()] = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
 
-                    try:
-                        good_dealcnt = goods_info.find_all('div', {'class':"deal-cnt"})[0].getText().strip('\n').strip('')
-                        pattern = re.compile(r'^\d+', re.M)
-                        good_dealcnt = int(pattern.findall(good_dealcnt)[0])
-                        resultData['DISPLAY_COUNT'.lower()] = good_dealcnt
-                    except Exception, e:
-                        logger.error('good_dealcnt error: {}'.format(e))
-                        # logger.error('goods_info: {}'.format(goods_info))
-                        resultData['DISPLAY_COUNT'.lower()] = 0
+                    good_dealcnt = goods_info.get('view_sales', '0')
+                    pattern = re.compile(r'^\d+', re.M)
+                    good_dealcnt = int(pattern.findall(good_dealcnt)[0])
+                    resultData['DISPLAY_COUNT'.lower()] = good_dealcnt
                     result_datas.append(resultData)
                 except Exception, e:
                     logger.error('error: {}'.format(e))
@@ -262,15 +333,9 @@ class CaptureTaobao(CaptureBase):
             total_page = page_infos['totalPage']
             page_size = page_infos['pageSize']
             for i in range(min(total_page, self.get_page)):
-                if i == 0:
-                    num = 48
-                elif i == total_page-1:
-                    num = 0
-                else:
-                    num = page_size
                 page_url = '{}&s={}'.format(firsturl, page_size*i)
                 logger.info('getGoodInfos category:{} page{} begin'.format(category, i+1))
-                page_results = self.getGoodInfos(category, page_url, num)
+                page_results = self.getGoodInfos(category, page_url)
                 goods_infos.extend(page_results)
             logger.info('dealCategory category:{} len goods_infos: {}'.format(category, len(goods_infos)))
             return goods_infos
