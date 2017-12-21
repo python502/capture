@@ -389,8 +389,8 @@ class CaptureAmazon(CaptureBase):
                     result_datas.append(resultData)
                 except Exception, e:
                     #应该是遇到了一张图片对应多个url商品链接的情况
-                    logger.error('get eLement error:{}'.format(e))
-                    logger.error('goodData: {}'.format(good_data))
+                    # logger.error('get eLement error:{}'.format(e))
+                    # logger.error('goodData: {}'.format(good_data))
                     continue
             if len(result_datas) == 0:
                 logger.error('page_source: {}'.format(page_source))
@@ -416,9 +416,9 @@ def main():
     objCaptureAmazon = CaptureAmazon(useragent)
     # objCaptureAmazon.get_verify_code('https://images-na.ssl-images-amazon.com/captcha/usvmgloq/Captcha_jxqunydgna.jpg')
     # 获取所有类别id
-    # objCaptureAmazon.get_department()
+    objCaptureAmazon.get_department()
     # 查询并入库所有类别的商品信息
-    objCaptureAmazon.dealCategorys()
+    # objCaptureAmazon.dealCategorys()
     # # 查询并入库首页推荐商品信息
     objCaptureAmazon.dealHomeGoods()
     # 查询dealID的商品信息
