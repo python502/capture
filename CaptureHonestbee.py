@@ -49,7 +49,6 @@ class CaptureHonestbee(CaptureBase):
             User-Agent:{}
             '''
     Channel = 'honestbee'
-    # Type = 'category'
     DepantmentOnly = True
     def __init__(self, user_agent, proxy_ip=None):
         super(CaptureHonestbee, self).__init__(user_agent, proxy_ip)
@@ -250,7 +249,7 @@ def main():
     startTime = datetime.now()
     objCaptureHonestbee = CaptureHonestbee(useragent)
     # 获取所有类别id
-    objCaptureHonestbee.get_department()
+    # objCaptureHonestbee.get_department()
     # 查询并入库所有类别的商品信息
     objCaptureHonestbee.dealCategorys()
     endTime = datetime.now()
