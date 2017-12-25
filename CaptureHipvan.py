@@ -90,14 +90,14 @@ class CaptureHipvan(CaptureBase):
                     result_data['NAME'.lower()] = data_box.find('a', {'class':"pdt-grid__item-link product-grid-item__link"}).attrs['title']
                     try:
                         PriceInfo = data_box.find('div', {'class':"pdt-grid__current-price"}).getText().strip()
-                        PriceInfo = PriceInfo[1:] if PriceInfo== '$' else PriceInfo
+                        PriceInfo = PriceInfo[1:] if PriceInfo.startswith('$') else PriceInfo
                         good_maxDealPrice = float(PriceInfo)
                         result_data['AMOUNT'.lower()] = good_maxDealPrice
                     except Exception:
                         result_data['AMOUNT'.lower()] = 0
                     try:
                         BeforepriceInfo = goods_info.find('div', {'class':"pdt-grid__typical-price"}).find('span').getText().strip(' ')
-                        BeforepriceInfo = BeforepriceInfo[1:] if BeforepriceInfo== '$' else BeforepriceInfo
+                        BeforepriceInfo = BeforepriceInfo[1:] if BeforepriceInfo.startswith('$') else BeforepriceInfo
                         good_maxBeforeDealPrice = float(BeforepriceInfo)
                         result_data['Before_AMOUNT'.lower()] = good_maxBeforeDealPrice
                     except Exception:

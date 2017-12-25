@@ -68,11 +68,11 @@ class CaptureBase(object):
                 logger.error('error browser type: {},must be phantomjs or chrome'.format(browser))
                 raise ValueError("browser type error")
             #加载页面的超时时间
-            driver.set_page_load_timeout(30)
-            driver.set_script_timeout(30)
+            driver.set_page_load_timeout(60)
+            driver.set_script_timeout(60)
             driver.get(url)
             time.sleep(sleep_time)
-            driver.implicitly_wait(10)
+            driver.implicitly_wait(30)
             page = driver.page_source.encode('utf-8') if isinstance(driver.page_source, (str, unicode)) else driver.page_source
             logger.debug('driver.page_source: {}'.format(page))
             return page
