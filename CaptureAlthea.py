@@ -172,7 +172,7 @@ class CaptureAlthea(CaptureBase):
             good_datas = resultDatas
             select_sql = format_select.format(self.TABLE_NAME_PRODUCT)
             table = self.TABLE_NAME_PRODUCT
-            replace_insert_columns = ['CHANNEL','KIND','SITE','PRODUCT_ID','LINK','MAIN_IMAGE','NAME','Currency','AMOUNT','Before_AMOUNT','CREATE_TIME','STATUS','RESERVE']
+            replace_insert_columns = ['CHANNEL','KIND','SITE','PRODUCT_ID','LINK','MAIN_IMAGE','NAME','Currency','AMOUNT','Before_AMOUNT','CREATE_TIME','STATUS','RESERVE','DISPLAY_COUNT']
             select_columns = ['ID', 'STATUS']
             return self._saveDatas(good_datas, table, select_sql, replace_insert_columns, select_columns)
         except Exception, e:
