@@ -107,11 +107,11 @@ class CaptureLazada(CaptureBase):
                     pattern = re.compile(r'"src": ".*"', re.S)
                     good_img_big = pattern.findall(good_img_big)[0].strip()
                     result_data['MAIN_IMAGE'.lower()] = good_img_big[8:-1]
-                    good_title = goods_info.find('div', {'class':"c-product-card__description"}).find('a', {'class':"c-product-card__name"}).getText().strip('\n').strip(' ').strip('\n')
+                    good_title = goods_info.find('div', {'class':"c-product-card__description"}).find('a', {'class':"c-product-card__name"}).getText().strip('\n').strip().strip('\n')
                     result_data['NAME'.lower()] = good_title.strip('\\')
 
                     try:
-                        good_dealcnt = goods_info.find('div', {'class':"c-product-card__description"}).find('div',{'class':'c-product-card__review-num'}).getText().strip(' ')
+                        good_dealcnt = goods_info.find('div', {'class':"c-product-card__description"}).find('div',{'class':'c-product-card__review-num'}).getText().strip()
                         pattern = re.compile(r'\d+', re.M)
                         good_dealcnt = int(pattern.findall(good_dealcnt)[0])
                         result_data['DISPLAY_COUNT'.lower()] = good_dealcnt
@@ -120,7 +120,7 @@ class CaptureLazada(CaptureBase):
                         result_data['DISPLAY_COUNT'.lower()] = 0
 
                     try:
-                        PriceInfo = goods_info.find('div', {'class':"c-product-card__price-block"}).find('span', {'class':"c-product-card__price-final"}).getText().strip('\n').strip(' ').strip('\n')
+                        PriceInfo = goods_info.find('div', {'class':"c-product-card__price-block"}).find('span', {'class':"c-product-card__price-final"}).getText().strip('\n').strip().strip('\n')
                         PriceInfo = PriceInfo.split(' ')
                         currency = PriceInfo[0]
                         good_maxDealPrice = float(PriceInfo[1].replace(',',''))
@@ -132,7 +132,7 @@ class CaptureLazada(CaptureBase):
                         result_data['AMOUNT'.lower()] = 0
 
                     try:
-                        BeforepriceInfo = goods_info.find('div', {'class':"c-product-card__price-block"}).find('div', {'class':"c-product-card__old-price"}).getText().strip(' ')
+                        BeforepriceInfo = goods_info.find('div', {'class':"c-product-card__price-block"}).find('div', {'class':"c-product-card__old-price"}).getText().strip()
                         BeforepriceInfo = BeforepriceInfo.split(' ')
                         good_maxBeforeDealPrice = float(BeforepriceInfo[1].replace(',',''))
                         result_data['Before_AMOUNT'.lower()] = good_maxBeforeDealPrice
@@ -142,7 +142,7 @@ class CaptureLazada(CaptureBase):
 
                     result_data['CREATE_TIME'.lower()] = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
                     try:
-                        good_description = goods_info.find('div', {'class':"c-product-card__price-block"}).find('div', {'class':"c-product-card-location__title"}).getText().strip('\n').strip(' ').strip('\n')
+                        good_description = goods_info.find('div', {'class':"c-product-card__price-block"}).find('div', {'class':"c-product-card-location__title"}).getText().strip('\n').strip().strip('\n')
                         result_data['DESCRIPTION'.lower()] = good_description.strip('\\')
                     except Exception, e:
                         # logger.error('good_description error: {}'.format(e))
@@ -180,11 +180,11 @@ class CaptureLazada(CaptureBase):
             catalogs = soup.find('ul',{'class':"c-catalog-nav__list"}).find_all('li')
             for catalog in catalogs:
                 url = catalog.find('a').attrs['href']
-                kind = catalog.find('a').getText().strip('\n').strip(' ')
+                kind = catalog.find('a').getText().strip('\n').strip()
                 if kind not in self.white_department:
                     logger.error('kind {} not in white_department'.format(kind.encode('utf-8')))
                     continue
-                total = int(catalog.find('span').getText().strip('\n').strip(' ').encode('utf-8')[1:-1])
+                total = int(catalog.find('span').getText().strip('\n').strip().encode('utf-8')[1:-1])
                 result = [kind.encode('utf-8'), url, total]
                 results.append(result)
             return results

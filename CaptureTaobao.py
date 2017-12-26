@@ -16,13 +16,11 @@ from logger import logger
 from bs4 import BeautifulSoup
 from retrying import retry
 from datetime import datetime
-from CaptureBase import CaptureBase
+from CaptureBase import CaptureBase, TimeoutException
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium import webdriver
 
-class TimeoutException(Exception):
-    def __init__(self, err='operation timed out'):
-        super(TimeoutException, self).__init__(err)
+
 
 class CaptureTaobao(CaptureBase):
     home_url = 'https://world.taobao.com/'

@@ -113,7 +113,7 @@ class CaptureShopee(CaptureBase):
                     good_id = pattern.findall(good_link)[0]
                     resultData['PRODUCT_ID'.lower()] = good_id.split('.')[-1]
 
-                    good_title = goods_info.find('div', {'class': 'shopee-item-card__text-name'}).getText().strip('\n').strip(' ').strip('\n')
+                    good_title = goods_info.find('div', {'class': 'shopee-item-card__text-name'}).getText().strip('\n').strip().strip('\n')
                     good_title = CaptureShopee.filter_emoji(good_title)
                     resultData['NAME'.lower()] = good_title
 
@@ -135,14 +135,14 @@ class CaptureShopee(CaptureBase):
 
                     resultData['Currency'.lower()] = 'SGD'
                     try:
-                        good_dealcnt = goods_info.find('div', {'class':"shopee-item-card__btn-like__text"}).getText().strip(' ')
+                        good_dealcnt = goods_info.find('div', {'class':"shopee-item-card__btn-like__text"}).getText().strip()
                         resultData['DISPLAY_COUNT'.lower()] = int(good_dealcnt)
                     except Exception, e:
                         # logger.error('good_dealcnt error: {}'.format(e))
                         resultData['DISPLAY_COUNT'.lower()] = 0
 
                     try:
-                        goods_info.find('div', {'class':"shopee-horizontal-badge shopee-preferred-seller-badge"}).getText().strip(' ')
+                        goods_info.find('div', {'class':"shopee-horizontal-badge shopee-preferred-seller-badge"}).getText().strip()
                         resultData['COMMEND_FLAG'.lower()] = 1
                     except Exception, e:
                         # logger.error('good_dealcnt error: {}'.format(e))

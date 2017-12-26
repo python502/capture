@@ -212,7 +212,7 @@ class CaptureCreative(CaptureBase):
             other = catalogs_all[-1]
             for catalog in catalogs:
                 url = urljoin(self.home_url, catalog.find('h2').find('a').attrs['href'])
-                kind = catalog.find('h2').find('a').getText().strip(' ')
+                kind = catalog.find('h2').find('a').getText().strip()
                 result = [kind.encode('utf-8'), url]
                 results.append(result)
             other_urls = other.findAll('li')

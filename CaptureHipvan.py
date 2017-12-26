@@ -96,7 +96,7 @@ class CaptureHipvan(CaptureBase):
                     except Exception:
                         result_data['AMOUNT'.lower()] = 0
                     try:
-                        BeforepriceInfo = goods_info.find('div', {'class':"pdt-grid__typical-price"}).find('span').getText().strip(' ')
+                        BeforepriceInfo = goods_info.find('div', {'class':"pdt-grid__typical-price"}).find('span').getText().strip()
                         BeforepriceInfo = BeforepriceInfo[1:] if BeforepriceInfo.startswith('$') else BeforepriceInfo
                         good_maxBeforeDealPrice = float(BeforepriceInfo)
                         result_data['Before_AMOUNT'.lower()] = good_maxBeforeDealPrice

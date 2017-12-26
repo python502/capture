@@ -117,8 +117,8 @@ class CaptureAngelflorist(CaptureBase):
                     resultData['PRODUCT_ID'.lower()] = good_link.split('/')[-2]
                     img_link = goods_info.find('img').attrs['src']
                     resultData['MAIN_IMAGE'.lower()] = urljoin(self.home_url, img_link)
-                    resultData['NAME'.lower()] = goods_info.find('img').attrs['alt'].strip('\n').strip(' ').strip('\n')
-                    PriceInfo = goods_info.find('p', {'class': 'item-price'}).getText().strip(' ')
+                    resultData['NAME'.lower()] = goods_info.find('img').attrs['alt'].strip('\n').strip().strip('\n')
+                    PriceInfo = goods_info.find('p', {'class': 'item-price'}).getText().strip()
                     resultData['Currency'.lower()] = 'SGD' if PriceInfo.startswith('S$') else 'USD'
                     pattern = re.compile(r'\d+\.\d*', re.M)
                     resultData['AMOUNT'.lower()] = float(pattern.findall(PriceInfo)[0])

@@ -203,7 +203,7 @@ class CaptureAmazon(CaptureBase):
             html = self.get_html(goodsurl, header=self.header)
             soup = BeautifulSoup(html, 'lxml')
             try:
-                price = soup.findAll(('div', {'class': "a-section a-spacing-none snsPriceBlock"}))[0].findAll('span', {'class': "a-size-large a-color-price"})[0].getText().strip('\n').strip(' ')
+                price = soup.findAll(('div', {'class': "a-section a-spacing-none snsPriceBlock"}))[0].findAll('span', {'class': "a-size-large a-color-price"})[0].getText().strip('\n').strip()
                 return price
             except Exception, e:
                 if e.message != 'list index out of range':
@@ -213,7 +213,7 @@ class CaptureAmazon(CaptureBase):
             list_price = soup.findAll(('tr', {'id': "priceblock_ourprice_row"}))
             for list in list_price:
                 try:
-                    price = list.findAll('td', {'class': "a-span12"})[0].findAll('span',{'class': "a-size-medium a-color-price"})[0].getText().strip('\n').strip(' ')
+                    price = list.findAll('td', {'class': "a-span12"})[0].findAll('span',{'class': "a-size-medium a-color-price"})[0].getText().strip('\n').strip()
                     break
                 except Exception, e:
                     if e.message != 'list index out of range':

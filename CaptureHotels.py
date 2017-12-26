@@ -8,7 +8,7 @@
 # @Software: PyCharm
 # @Desc    :
 import os
-from CaptureBase import CaptureBase
+from CaptureBase import CaptureBase, TimeoutException
 import re
 import time
 import json
@@ -207,6 +207,8 @@ class CaptureHotels(CaptureBase):
                 except Exception, e:
                     time.sleep(1)
                 endTime = datetime.now()
+            else:
+                raise TimeoutException('hotels __getHtmlselenium timeout')
             driver.implicitly_wait(10)
             page = driver.page_source.encode('utf-8') if isinstance(driver.page_source, (str, unicode)) else driver.page_source
             logger.debug('driver.page_source: {}'.format(page))

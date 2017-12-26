@@ -105,11 +105,11 @@ class CaptureEzbug(CaptureBase):
                         good_img_big = urljoin('https:', good_img_big)
 
                     resultData['MAIN_IMAGE'.lower()] = good_img_big
-                    good_title = goods_info.find('div', {'class': 'info'}).find('a', {'class':"name"}).getText().strip('\n').strip(' ').strip('\n')
+                    good_title = goods_info.find('div', {'class': 'info'}).find('a', {'class':"name"}).getText().strip('\n').strip().strip('\n')
                     good_title = CaptureEzbug.filter_emoji(good_title)
                     resultData['NAME'.lower()] = good_title
                     try:
-                        PriceInfo = goods_info.find('div', {'class': 'info'}).find('span', {'class': "price"}).find('span').getText().strip(' ')
+                        PriceInfo = goods_info.find('div', {'class': 'info'}).find('span', {'class': "price"}).find('span').getText().strip()
                         PriceInfo = PriceInfo.split(' ')
                         good_maxDealPrice = float(PriceInfo[1])
                         resultData['AMOUNT'.lower()] = good_maxDealPrice
@@ -118,7 +118,7 @@ class CaptureEzbug(CaptureBase):
                         resultData['AMOUNT'.lower()] = 0
                     resultData['Currency'.lower()] = 'SGD'
                     try:
-                        BeforepriceInfo = goods_info.find('div', {'class': 'info'}).find('span', {'class': "price"}).find('s').getText().strip(' ')
+                        BeforepriceInfo = goods_info.find('div', {'class': 'info'}).find('span', {'class': "price"}).find('s').getText().strip()
                         BeforepriceInfo = BeforepriceInfo.split(' ')
                         good_maxBeforeDealPrice = float(BeforepriceInfo[1])
                         resultData['Before_AMOUNT'.lower()] = good_maxBeforeDealPrice
@@ -161,7 +161,7 @@ class CaptureEzbug(CaptureBase):
             catalogs = soup.find('ul', {'class': 'navs', 'id': 'webNavs'}).findAll('li')
             for catalog in catalogs:
                 url = catalog.find('a').attrs['href']
-                kind = catalog.find('a').find('span', {'class': 'nav-text'}).getText().strip(' ')
+                kind = catalog.find('a').find('span', {'class': 'nav-text'}).getText().strip()
                 if kind not in self.white_department:
                     logger.error('kind {} not in white_department'.format(kind.encode('utf-8')))
                     continue
