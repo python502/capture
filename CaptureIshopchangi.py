@@ -14,8 +14,6 @@ Created on 2016年6月4日
 '''
 import os
 from CaptureBase import CaptureBase, TimeoutException
-import re
-import json
 import time
 from CrawlingProxy import CrawlingProxy,useragent
 from logger import logger
@@ -203,9 +201,10 @@ class CaptureIshopchangi(CaptureBase):
     def dealHomeGoods(self):
         result_datas = []
         try:
-            page_source = self.__getHtmlselenium(self.home_url, '//*[@id="homebanner"]/div[2]/div')
+            page_source = self.__getHtmlselenium(self.home_url, '//*[@id="homebanner"]/div[2]/div/div[2]')
             soup = BeautifulSoup(page_source, 'lxml')
-            pre_load_data = soup.findAll('div', {'data-ng-repeat': 'product in products'})
+            # pre_load_data = soup.findAll('div', {'data-ng-repeat': 'product in products'})
+            pre_load_data = soup.find('div', {'class': 'swiper-container'}).findAll('div', {'data-ng-bind-html': 'slide'})[1:-1]
             for load_data in pre_load_data:
                 try:
                     logger.debug('load_data: {}'.format(load_data))
@@ -269,7 +268,7 @@ def main():
     objCaptureIshopchangi = CaptureIshopchangi(useragent)
     # 查询并入库所有类别的商品信息
     # objCaptureIshopchangi.get_department()
-    objCaptureIshopchangi.dealCategorys()
+    # objCaptureIshopchangi.dealCategorys()
     objCaptureIshopchangi.dealHomeGoods()
     # html = objCaptureIshopchangi.getHtmlselenium(objCaptureIshopchangi.home_url,sleep_time=30)
     # print html
