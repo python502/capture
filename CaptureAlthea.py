@@ -231,7 +231,7 @@ def main():
     objCaptureAlthea = CaptureAlthea(useragent)
     # 查询并入库所有类别的商品信息
     objCaptureAlthea.dealCategorys()
-    # objCaptureAlthea.dealHomeGoods()
+    objCaptureAlthea.dealHomeGoods()
     # html = objCaptureAlthea.getHtml('https://sg.althea.kr/', objCaptureAlthea.header)
     # print html
 

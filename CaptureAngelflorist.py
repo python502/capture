@@ -267,7 +267,7 @@ def main():
 
     objCaptureAngelflorist = CaptureAngelflorist(useragent)
     # 获取所有类别id
-    objCaptureAngelflorist.get_department()
+    # objCaptureAngelflorist.get_department()
     # 查询并入库所有类别的商品信息
     objCaptureAngelflorist.dealCategorys()
 
