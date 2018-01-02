@@ -237,7 +237,7 @@ def main():
     # 查询并入库所有类别的商品信息
     # objCaptureCreative.get_department()
     objCaptureCreative.dealCategorys()
-    # objCaptureCreative.dealHomeGoods()
+    objCaptureCreative.dealHomeGoods()
     # html = objCaptureCreative.getHtml('https://sg.creative.com/p/accessories', objCaptureCreative.header)
     # print html
 
