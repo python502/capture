@@ -25,7 +25,6 @@ from datetime import datetime
 from urlparse import urljoin
 
 class CaptureLazada(CaptureBase):
-    department_url = 'https://www.lazada.sg/catalog/?q=sale'
     home_url = 'https://www.lazada.sg'
     HEADER = '''
             Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8
