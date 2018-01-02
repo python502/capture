@@ -268,7 +268,7 @@ def main():
     objCaptureIshopchangi = CaptureIshopchangi(useragent)
     # 查询并入库所有类别的商品信息
     # objCaptureIshopchangi.get_department()
-    # objCaptureIshopchangi.dealCategorys()
+    objCaptureIshopchangi.dealCategorys()
     objCaptureIshopchangi.dealHomeGoods()
     # html = objCaptureIshopchangi.getHtmlselenium(objCaptureIshopchangi.home_url,sleep_time=30)
     # print html

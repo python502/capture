@@ -411,10 +411,10 @@ def main():
     # objCaptureTaobao.getHtmlselenium('https://world.taobao.com/')
 
     #查询并入库所有类别的商品信息
-    objCaptureTaobao.dealCategorys()
+    # objCaptureTaobao.dealCategorys()
 
     # 查询并入库首页推荐商品信息
-    # objCaptureTaobao.dealHomeGoods()
+    objCaptureTaobao.dealHomeGoods()
 
     #查询商品总信息 例如总页数 总条数
     # objCaptureTaobao.getPageInfos(u'https://s.taobao.com/search?spm=a21wu.241046-cn.6977698868.5.2816e72eg2pkH9&q=%E5%A5%B3%E8%A3%85&acm=lb-zebra-241046-2058600.1003.4.1797247&scm=1003.4.lb-zebra-241046-2058600.OTHER_14950676920071_1797247')

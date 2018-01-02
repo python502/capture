@@ -16,6 +16,7 @@ import os
 from CaptureBase import CaptureBase
 import re
 import time
+import json
 from CrawlingProxy import CrawlingProxy,useragent
 from logger import logger
 from bs4 import BeautifulSoup
@@ -26,12 +27,6 @@ from urlparse import urljoin
 class CaptureLazada(CaptureBase):
     department_url = 'https://www.lazada.sg/catalog/?q=sale'
     home_url = 'https://www.lazada.sg'
-    white_department = [ u'Mobiles & Tablets', u'Health & Beauty', u'Toys & Games', u'Furniture & D\xe9cor', u'Sports & Outdoors',\
-                         u'Watches Sunglasses Jewellery', u'Fashion', u'Tools, DIY & Outdoor', u'Kitchen & Dining', u'Motors',\
-                         u'TV, Audio / Video, Gaming & Wearables', u'Computers & Laptops', u'Bags and Travel', u'Stationery & Craft',\
-                         u'Cameras',u'Mother & Baby', u'Pet Supplies', u'Home Appliances', u'Bedding & Bath', u'Media, Music & Books',
-                         u'Laundry & Cleaning', u'Groceries']
-    # white_department = [ u'Toys & Games']
     HEADER = '''
             Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8
             Accept-Encoding:gzip, deflate, br
@@ -54,23 +49,12 @@ class CaptureLazada(CaptureBase):
     @return: True or False
     '''
     def dealCategory(self, department):
-        goods_infos = []
         category = department[0]
+        page_url = department[1]
         try:
-            page_num = 60#设置每页显示多少商品
-            get_page = 2
-            formaturl='https://www.lazada.sg{}&itemperpage={}&page={}'
-            if department[2] % 60 == 0:
-                total_page = department[2] / 60
-            else:
-                total_page = department[2]/60+1
-            end_page = min(total_page, get_page)+1
-            for i in range(1, end_page):
-                page_url = formaturl.format(department[1], page_num, i)
-                page_results = self.getGoodInfos(category, page_url)
-                goods_infos.extend(page_results)
-            logger.info('dealCategory category:{} len goods_infos: {}'.format(category, len(goods_infos)))
-            return goods_infos
+            page_results = self.getGoodInfos(category, page_url)
+            logger.info('dealCategory category:{} len goods_infos: {}'.format(category, len(page_results)))
+            return page_results
         except Exception, e:
             logger.error('categoryurl: {} error'.format(category))
             logger.error('dealCategory error: {}.'.format(e))
@@ -88,8 +72,9 @@ class CaptureLazada(CaptureBase):
             logger.debug('pageurl: {}'.format(pageurl))
             result_datas = []
             page_source = self.getHtml(pageurl, self.header)
-            soup = BeautifulSoup(page_source, 'lxml')
-            goods_infos = soup.select('div .c-product-card.c-product-list__item.c-product-card_view_grid')
+            pattern = re.compile('<script>window.pageData=(.*?)</script>', re.S)
+            goods_infos = pattern.findall(page_source)
+            goods_infos = json.loads(goods_infos[0].strip())['mods']['listItems']
             for goods_info in goods_infos:
                 result_data = {}
                 result_data['CHANNEL'.lower()] = self.Channel
@@ -97,57 +82,21 @@ class CaptureLazada(CaptureBase):
                 result_data['SITE'.lower()] = 'lazada.sg'
                 result_data['STATUS'.lower()] = '01'
                 try:
-                    good_id = goods_info.attrs['data-sku-simple']
-                    result_data['PRODUCT_ID'.lower()] = good_id
-                    good_link = goods_info.find('div', {'class':"c-product-card__img-placeholder"}).find('a', {'class':"c-product-card__img-placeholder-inner"}).attrs['href']
-                    result_data['LINK'.lower()] = urljoin(self.home_url, good_link)
-
-                    good_img_big = goods_info.find('div', {'class':"c-product-card__img-placeholder"}).find('a', {'class':"c-product-card__img-placeholder-inner"}).\
-                        find('span').attrs['data-js-component-params']
-                    pattern = re.compile(r'"src": ".*"', re.S)
-                    good_img_big = pattern.findall(good_img_big)[0].strip()
-                    result_data['MAIN_IMAGE'.lower()] = good_img_big[8:-1]
-                    good_title = goods_info.find('div', {'class':"c-product-card__description"}).find('a', {'class':"c-product-card__name"}).getText().strip('\n').strip().strip('\n')
-                    result_data['NAME'.lower()] = good_title.strip('\\')
-
-                    try:
-                        good_dealcnt = goods_info.find('div', {'class':"c-product-card__description"}).find('div',{'class':'c-product-card__review-num'}).getText().strip()
-                        pattern = re.compile(r'\d+', re.M)
-                        good_dealcnt = int(pattern.findall(good_dealcnt)[0])
-                        result_data['DISPLAY_COUNT'.lower()] = good_dealcnt
-                    except Exception, e:
-                        # logger.error('good_dealcnt error: {}'.format(e))
-                        result_data['DISPLAY_COUNT'.lower()] = 0
-
-                    try:
-                        PriceInfo = goods_info.find('div', {'class':"c-product-card__price-block"}).find('span', {'class':"c-product-card__price-final"}).getText().strip('\n').strip().strip('\n')
-                        PriceInfo = PriceInfo.split(' ')
-                        currency = PriceInfo[0]
-                        good_maxDealPrice = float(PriceInfo[1].replace(',',''))
-                        result_data['Currency'.lower()] = currency
-                        result_data['AMOUNT'.lower()] = good_maxDealPrice
-                    except Exception, e:
-                        # logger.error('good_maxDealPrice error: {}'.format(e))
-                        result_data['Currency'.lower()] = 'SGD'
-                        result_data['AMOUNT'.lower()] = 0
-
-                    try:
-                        BeforepriceInfo = goods_info.find('div', {'class':"c-product-card__price-block"}).find('div', {'class':"c-product-card__old-price"}).getText().strip()
-                        BeforepriceInfo = BeforepriceInfo.split(' ')
-                        good_maxBeforeDealPrice = float(BeforepriceInfo[1].replace(',',''))
-                        result_data['Before_AMOUNT'.lower()] = good_maxBeforeDealPrice
-                    except Exception, e:
-                        # logger.error('good_maxBeforeDealPrice error: {}'.format(e))
-                        result_data['Before_AMOUNT'.lower()] = 0
+                    result_data['PRODUCT_ID'.lower()] = goods_info['nid']
+                    result_data['LINK'.lower()] = urljoin(self.home_url, goods_info['productUrl'])
+                    result_data['MAIN_IMAGE'.lower()] = goods_info['image']
+                    result_data['NAME'.lower()] = goods_info['name'].strip().strip('"').replace('\n', '').replace('"', '\'').replace('\\', '')
+                    result_data['DISPLAY_COUNT'.lower()] = int(goods_info['review'])
+                    result_data['Currency'.lower()] = 'SGD'
+                    result_data['AMOUNT'.lower()] = float(goods_info.get('price','0'))
+                    result_data['Before_AMOUNT'.lower()] = float(goods_info.get('originalPrice','0'))
 
                     result_data['CREATE_TIME'.lower()] = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
-                    try:
-                        good_description = goods_info.find('div', {'class':"c-product-card__price-block"}).find('div', {'class':"c-product-card-location__title"}).getText().strip('\n').strip().strip('\n')
-                        result_data['DESCRIPTION'.lower()] = good_description.strip('\\')
-                    except Exception, e:
-                        # logger.error('good_description error: {}'.format(e))
-                        result_data['DESCRIPTION'.lower()] = u'Singapore'
-
+                    description = goods_info.get('description', [])
+                    description = [i.strip().strip('"').replace('\n', '').replace('"', '\'').replace('\\', '') for i in description if i.strip()]
+                    # result_data['DESCRIPTION'.lower()] = goods_info.get('description', [])[0].strip().replace('\n', '') if goods_info.get('description') else ''
+                    result_data['DESCRIPTION'.lower()] = ''.join(description)
+                    result_data['RESERVE'.lower()] = goods_info.get('discount')
                     result_datas.append(result_data)
                 except Exception, e:
                     logger.error('error: {}'.format(e))
@@ -175,20 +124,15 @@ class CaptureLazada(CaptureBase):
     def __get_department(self):
         try:
             results = []
-            html = self.getHtml(self.department_url, self.header)
+            html = self.getHtml(self.home_url, self.header)
             soup = BeautifulSoup(html, 'lxml')
-            catalogs = soup.find('ul',{'class':"c-catalog-nav__list"}).find_all('li')
+            catalogs = soup.findAll('li', {'class':"lzd-site-menu-sub-item"})
             for catalog in catalogs:
-                url = catalog.find('a').attrs['href']
-                kind = catalog.find('a').getText().strip('\n').strip()
-                if kind not in self.white_department:
-                    logger.error('kind {} not in white_department'.format(kind.encode('utf-8')))
-                    continue
-                total = int(catalog.find('span').getText().strip('\n').strip().encode('utf-8')[1:-1])
-                result = [kind.encode('utf-8'), url, total]
+                url = urljoin(self.home_url, catalog.find('a').attrs['href'])
+                kind = catalog.find('span').getText().strip('\n').strip()
+                result = [kind.encode('utf-8'), url]
                 results.append(result)
             return results
-
         except Exception, e:
             logger.error('__get_department error: {}'.format(e))
             raise
@@ -216,13 +160,54 @@ class CaptureLazada(CaptureBase):
             good_datas = resultDatas
             select_sql = format_select.format(self.TABLE_NAME_PRODUCT)
             table = self.TABLE_NAME_PRODUCT
-            replace_insert_columns = ['CHANNEL','KIND','SITE','PRODUCT_ID','LINK','MAIN_IMAGE','NAME','DESCRIPTION','Currency','AMOUNT','Before_AMOUNT','CREATE_TIME','DISPLAY_COUNT','STATUS']
+            replace_insert_columns = ['CHANNEL','KIND','SITE','PRODUCT_ID','LINK','MAIN_IMAGE','NAME','DESCRIPTION','Currency','AMOUNT','Before_AMOUNT','CREATE_TIME','DISPLAY_COUNT','STATUS','RESERVE']
             select_columns = ['ID', 'STATUS']
             return self._saveDatas(good_datas, table, select_sql, replace_insert_columns, select_columns)
         except Exception, e:
             logger.error('dealCategorys error: {}'.format(e))
         finally:
             logger.info('dealCategorys end')
+
+    '''
+    function: 获取并存储首页滚动栏的商品信息
+    @return: True or raise
+    '''
+    @retry(stop_max_attempt_number=3, wait_fixed=2000)
+    def dealHomeGoods(self):
+        result_datas = []
+        try:
+            page_source = self.getHtml(self.home_url, self.header)
+            soup = BeautifulSoup(page_source, 'lxml')
+            pre_load_data = soup.findAll('a', {'exp-tracking': 'bannerSlider'})
+            for load_data in pre_load_data:
+                logger.debug('load_data: {}'.format(load_data))
+                resultData = {}
+                resultData['CHANNEL'.lower()] = self.Channel
+                resultData['STATUS'.lower()] = '01'
+                resultData['LINK'.lower()] = urljoin(self.home_url, load_data.attrs['href'])
+                try:
+                    img_src = load_data.find('img').attrs['data-ks-lazyload']
+                except KeyError:
+                    img_src = load_data.find('img').attrs['src']
+                resultData['MAIN_IMAGE'.lower()] = urljoin(self.home_url, img_src)
+                resultData['TITLE'.lower()] = load_data.attrs['title']
+                resultData['CREATE_TIME'.lower()] = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
+                result_datas.append(resultData)
+            result_datas = self._rm_duplicate(result_datas, 'LINK'.lower())
+            if len(result_datas) == 0:
+                logger.error('page_source: {}'.format(page_source))
+                raise ValueError('not get valid data')
+
+            format_select = r'SELECT ID FROM {} WHERE CHANNEL="{{channel}}" and LINK="{{link}}" ORDER BY CREATE_TIME DESC'
+            good_datas = result_datas
+            select_sql = format_select.format(self.TABLE_NAME_BANNER)
+            table = self.TABLE_NAME_BANNER
+            replace_insert_columns = ['CHANNEL', 'LINK', 'MAIN_IMAGE', 'CREATE_TIME', 'STATUS', 'TITLE']
+            select_columns = ['ID']
+            return self._saveDatas(good_datas, table, select_sql, replace_insert_columns, select_columns)
+        except Exception, e:
+            logger.error('Get home goods infos error:{},retry it'.format(e))
+            raise
 
 def main():
     startTime = datetime.now()
@@ -232,12 +217,13 @@ def main():
 
     objCaptureLazada = CaptureLazada(useragent)
     # 获取所有类别id
-    objCaptureLazada.get_department()
-    # 查询并入库所有类别的商品信息
-    objCaptureLazada.dealCategorys()
+    # objCaptureLazada.get_department()
+    # # 查询并入库所有类别的商品信息
+    # objCaptureLazada.dealCategorys()
+    objCaptureLazada.dealHomeGoods()
     # objCaptureLazada.dealCategory(['Groceries', '/groceries/?q=sale', 19961])
-    # print objCaptureLazada.getGoodInfos('fdfd','https://www.lazada.sg/shop-fashion/?q=sale&itemperpage=60&page=0')
-    # print objCaptureLazada.getHtml('https://www.lazada.sg/',objCaptureLazada.header)
+    # print objCaptureLazada.getGoodInfos('fdfd','https://www.lazada.sg/shop-feeding/')
+    # print objCaptureLazada.getHtml('https://www.lazada.sg/shop-feeding/',objCaptureLazada.header)
 
     endTime = datetime.now()
     print 'seconds', (endTime - startTime).seconds
