@@ -84,7 +84,6 @@ class CaptureUniqlo(CaptureBase):
                     else:
                         continue
                 result_datas.append(resultData)
-            print len(result_datas)
             result_datas = self._rm_duplicate(result_datas, 'LINK'.lower())
             if len(result_datas) == 0:
                 logger.error('page_source: {}'.format(page_source))
