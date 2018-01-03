@@ -254,6 +254,6 @@ class CaptureBase(object):
     @
     @return: None
     '''
-    # def dealCategorys(self):
-    #     logger.error('dealCategorys does not exist')
-    #     return False
+    def dealCategorys(self):
+        logger.error('dealCategorys does not exist')
+        return False
