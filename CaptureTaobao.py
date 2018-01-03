@@ -364,7 +364,7 @@ class CaptureTaobao(CaptureBase):
     def dealHomeGoods(self):
         try:
             goods = {}
-            html = self.getHtmlselenium(self.home_url)
+            html = self.getHtmlselenium(self.home_url, sleep_time=30)
             soup = BeautifulSoup(html, 'lxml')
             recommends = soup.find('div', {'id': "banner-slider", 'class': "image-slider"}).find_all('a',{'class':"tab-pannel slider-panel item"})
             for recommend in recommends:
@@ -411,7 +411,7 @@ def main():
     # objCaptureTaobao.getHtmlselenium('https://world.taobao.com/')
 
     #查询并入库所有类别的商品信息
-    # objCaptureTaobao.dealCategorys()
+    objCaptureTaobao.dealCategorys()
 
     # 查询并入库首页推荐商品信息
     objCaptureTaobao.dealHomeGoods()

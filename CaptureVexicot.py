@@ -81,6 +81,7 @@ class CaptureVexicot(CaptureBase):
 def main():
     startTime = datetime.now()
     objCaptureVexicot = CaptureVexicot(useragent)
+    objCaptureVexicot.dealCategorys()
     objCaptureVexicot.dealHomeGoods()
     endTime = datetime.now()
     print 'seconds', (endTime - startTime).seconds

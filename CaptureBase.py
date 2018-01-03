@@ -240,3 +240,20 @@ class CaptureBase(object):
         except re.error:
             co = re.compile(u'[\uD800-\uDBFF][\uDC00-\uDFFF]')
         return co.sub(restr, desstr)
+
+    '''
+    function: 获取并存储首页滚动栏的商品信息
+    @return: True or Raise
+    '''
+    def dealHomeGoods(self):
+        logger.error('dealHomeGoods does not exist')
+        return False
+
+    '''
+    function: 获取所有分类的商品信息
+    @
+    @return: None
+    '''
+    # def dealCategorys(self):
+    #     logger.error('dealCategorys does not exist')
+    #     return False
