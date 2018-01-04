@@ -18,10 +18,9 @@ from bs4 import BeautifulSoup
 from retrying import retry
 from datetime import datetime
 from urlparse import urljoin
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
-from selenium import webdriver
 
 class CaptureShopee(CaptureBase):
+    banners_url = 'https://shopee.sg/api/banner/get_list?type=activity'
     department_url = 'https://shopee.sg/api/v1/category_list/'
     home_url = 'https://shopee.sg/'
     white_department = ['Men\'s Wear', 'Women\'s Apparel', 'Mobile & Gadgets', 'Health & Beauty', 'Food & Beverages', \
@@ -275,6 +274,7 @@ class CaptureShopee(CaptureBase):
             logger.error('dealCategorys error: {}'.format(e))
         finally:
             logger.info('dealCategorys end')
+
     '''
     function: 获取并存储首页滚动栏的商品信息
     @return: True or raise
@@ -283,20 +283,17 @@ class CaptureShopee(CaptureBase):
     def dealHomeGoods(self):
         result_datas = []
         try:
-            page_source = self.getHtmlselenium(self.home_url, 'chrome', 120)
-            soup = BeautifulSoup(page_source, 'lxml')
-            pre_load_data = soup.find('div', {'class': 'image-carousel__item-list-wrapper'}).findAll('li', {'class': 'image-carousel__item'})
+            page_source = self.getHtml(self.banners_url, self.header)
+            pre_load_data = json.loads(page_source)['banners']
             for load_data in pre_load_data:
                 try:
                     logger.debug('load_data: {}'.format(load_data))
                     resultData = {}
                     resultData['CHANNEL'.lower()] = self.Channel
                     resultData['STATUS'.lower()] = '01'
-                    resultData['LINK'.lower()] = urljoin(self.home_url, load_data.find('a', {'class': 'home-banners__banner-image'}).attrs['href'])
-                    image_info = load_data.find('div', {'class': 'lazy-image__image'}).attrs['style']
-                    pattern = re.compile('\(.*?\)')
-                    pre_load_data = pattern.findall(image_info)[0]
-                    resultData['MAIN_IMAGE'.lower()] = pre_load_data[2:-2]
+                    resultData['LINK'.lower()] = load_data.get('navigate_params').get('url')
+                    resultData['MAIN_IMAGE'.lower()] = load_data.get('banner_image')
+                    resultData['TITLE'.lower()] = load_data.get('navigate_params').get('navbar').get('title')
                     resultData['CREATE_TIME'.lower()] = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
                     result_datas.append(resultData)
                 except Exception, e:
@@ -330,7 +327,7 @@ def main():
     # 获取所有类别id
     # objCaptureShopee.get_department()
     # 查询并入库所有类别的商品信息
-    objCaptureShopee.dealCategorys()
+    # objCaptureShopee.dealCategorys()
     # # 查询并入库首页推荐商品信息
     objCaptureShopee.dealHomeGoods()
     # print objCaptureShopee.getGoodInfos('aaaa','https://shopee.sg/Mobile-Gadgets-cat.8?page=0')
@@ -340,4 +337,3 @@ def main():
     print 'seconds', (endTime - startTime).seconds
 if __name__ == '__main__':
     main()
-
