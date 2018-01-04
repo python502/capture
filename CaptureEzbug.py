@@ -224,23 +224,21 @@ class CaptureEzbug(CaptureBase):
             # pre_load_data = [eval(format_str.format(data).replace(':true', ':True')) for data in pre_load_data]
             page_source = self.getHtmlselenium(self.home_url)
             soup = BeautifulSoup(page_source, 'lxml')
+            # print soup
             # pre_load_data = soup.find('div', {'class': 'pcBetterSwipe'}).findAll('a', {'target': '_blank'})
-            pre_load_data = soup.find('div', {'class': 'bannerWithHoverButtonWrapper'}).findAll('a', {'target': '_blank'})
+            pre_load_data = soup.find('div', {'class': 'bannerWithHoverButtonBannerWrapper '}).findAll('a', {'class': 'bannerWithHoverButtonImageWrapper'})
             for load_data in pre_load_data:
+                logger.debug('load_data: {}'.format(load_data))
+                resultData = {}
+                resultData['CHANNEL'.lower()] = self.Channel
+                resultData['STATUS'.lower()] = '01'
                 try:
-                    logger.debug('load_data: {}'.format(load_data))
-                    resultData = {}
-                    resultData['CHANNEL'.lower()] = self.Channel
-                    resultData['STATUS'.lower()] = '01'
                     resultData['LINK'.lower()] = urljoin(self.home_url, load_data.attrs['href'])
-                    resultData['MAIN_IMAGE'.lower()] = urljoin(self.home_url, load_data.find('img').attrs['src'])
-                    resultData['CREATE_TIME'.lower()] = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
-                    result_datas.append(resultData)
-                except Exception, e:
-                    #应该是遇到了一张图片对应多个url商品链接的情况
-                    logger.error('get eLement error:{}'.format(e))
-                    logger.error('goodData: {}'.format(load_data))
+                except KeyError:
                     continue
+                resultData['MAIN_IMAGE'.lower()] = urljoin(self.home_url, load_data.find('img').attrs['src'])
+                resultData['CREATE_TIME'.lower()] = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
+                result_datas.append(resultData)
             result_datas = self._rm_duplicate(result_datas, 'LINK'.lower())
             if len(result_datas) == 0:
                 logger.error('page_source: {}'.format(page_source))
@@ -268,7 +266,7 @@ def main():
     # 获取所有类别id
     # objCaptureEzbug.get_department()
     # 查询并入库所有类别的商品信息
-    objCaptureEzbug.dealCategorys()
+    # objCaptureEzbug.dealCategorys()
     # objCaptureEzbug.dealCategory(['Women\'s Clothing', '/category/5?ezspm=1.20000006.3.0.5'])
     # print objCaptureEzbug.getGoodInfos('Women\'s Clothing', 'https://ezbuy.sg/category/5?ezspm=1.10000000.3.0.5&offset=56')
     # # 查询并入库首页推荐商品信息
