@@ -8,7 +8,7 @@
 # @Software: PyCharm
 # @Desc    :
 import os
-from CaptureBase import CaptureBase
+from CaptureBase import CaptureBase, TimeoutException
 import re
 import time
 import json
@@ -74,6 +74,37 @@ class CaptureShopee(CaptureBase):
             logger.error('dealCategory error: {}.'.format(e))
             return False
 
+    @retry(stop_max_attempt_number=3, wait_fixed=2000)
+    def __getHtmlselenium(self, url, checkstr, timeout=30):
+        from selenium import webdriver
+        driver = None
+        try:
+            driver = webdriver.PhantomJS(executable_path=self.phantomjs_path)
+            driver.set_page_load_timeout(30)
+            driver.set_script_timeout(30)
+            driver.get(url)
+            startTime = datetime.now()
+            endTime = datetime.now()
+            while ((endTime-startTime).seconds < timeout):
+                try:
+                    driver.find_element_by_xpath(checkstr)
+                    break
+                except Exception, e:
+                    time.sleep(1)
+                endTime = datetime.now()
+            else:
+                raise TimeoutException('ishopchangi __getHtmlselenium timeout')
+            driver.implicitly_wait(10)
+            page = driver.page_source.encode('utf-8') if isinstance(driver.page_source, (str, unicode)) else driver.page_source
+            logger.debug('driver.page_source: {}'.format(page))
+            return page
+        except Exception, e:
+            logger.error('__getHtmlselenium error:{},retry it'.format(e))
+            raise
+        finally:
+            if driver:
+                driver.quit()
+
     '''
     function: 获取单页商品信息
     @category： 分类名
@@ -85,14 +116,15 @@ class CaptureShopee(CaptureBase):
         try:
             logger.debug('pageurl: {}'.format(pageurl))
             result_datas = []
-            page_source = self.getHtmlselenium(pageurl)
+            page_source = self.__getHtmlselenium(pageurl,'//*[@id="main"]/div/div/div[3]/div[2]/div[1]/div[4]/div[2]/div/div[2]/div[1]')
             soup = BeautifulSoup(page_source, 'lxml')
             goods_headers = soup.findAll('script', {'type': 'application/ld+json'})
             resultHerder = {}
             for goods_header in goods_headers:
                 good = json.loads(goods_header.contents[0].encode('utf-8'))
                 resultHerder[good.get('url')] = good.get('image')
-            goods_infos = soup.select('div .shopee-search-result-view__item-card')
+
+            goods_infos = soup.findAll('div', {'class：','shopee-search-result-view__item-card'})
             for goods_info in goods_infos:
                 resultData = {}
                 resultData['CHANNEL'.lower()] = self.Channel
@@ -148,13 +180,12 @@ class CaptureShopee(CaptureBase):
                         # logger.error('good_dealcnt error: {}'.format(e))
                         resultData['COMMEND_FLAG'.lower()] = 0
                     resultData['CREATE_TIME'.lower()] = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
+
                     result_datas.append(resultData)
                 except Exception, e:
-                    logger.error('error: {}'.format(e))
-                    # logger.error('goods_info: {}'.format(goods_info))
+                    # logger.error('error: {}'.format(e))
                     continue
-            if len(goods_infos) != len(result_datas) or not result_datas:
-                # logger.error('len goods_infos: {},len result_datas: {}'.format(goods_infos, result_datas))
+            if not result_datas:
                 raise ValueError('get result_datas error')
             return result_datas
         except Exception, e:
@@ -302,6 +333,7 @@ def main():
     objCaptureShopee.dealCategorys()
     # # 查询并入库首页推荐商品信息
     objCaptureShopee.dealHomeGoods()
+    # print objCaptureShopee.getGoodInfos('aaaa','https://shopee.sg/Mobile-Gadgets-cat.8?page=0')
     # print objCaptureShopee.getHtml('https://shopee.sg/Men\'s-Shoes-cat.168',objCaptureShopee.header)
     # print objCaptureShopee.getHtmlselenium('https://shopee.sg')
     endTime = datetime.now()

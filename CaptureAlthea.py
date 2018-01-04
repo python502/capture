@@ -12,17 +12,14 @@ Created on 2016年6月4日
 
 @author: Administrator
 '''
-import os
 from CaptureBase import CaptureBase
 import re
-import json
 import time
 from CrawlingProxy import CrawlingProxy,useragent
 from logger import logger
 from bs4 import BeautifulSoup
 from retrying import retry
 from datetime import datetime
-from urlparse import urljoin
 
 class CaptureAlthea(CaptureBase):
     home_url = 'https://sg.althea.kr/'
@@ -231,7 +228,7 @@ def main():
     objCaptureAlthea = CaptureAlthea(useragent)
     # 查询并入库所有类别的商品信息
     objCaptureAlthea.dealCategorys()
-    objCaptureAlthea.dealHomeGoods()
+    # objCaptureAlthea.dealHomeGoods()
     # html = objCaptureAlthea.getHtml('https://sg.althea.kr/', objCaptureAlthea.header)
     # print html
 

@@ -246,8 +246,8 @@ class CaptureBase(object):
     @return: True or Raise
     '''
     def dealHomeGoods(self):
-        logger.error('dealHomeGoods does not exist')
-        return False
+        logger.info('dealHomeGoods does not exist')
+        return True
 
     '''
     function: 获取所有分类的商品信息
@@ -255,5 +255,5 @@ class CaptureBase(object):
     @return: None
     '''
     def dealCategorys(self):
-        logger.error('dealCategorys does not exist')
-        return False
+        logger.info('dealCategorys does not exist')
+        return True

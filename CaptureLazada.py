@@ -218,7 +218,7 @@ def main():
     # 获取所有类别id
     # objCaptureLazada.get_department()
     # # 查询并入库所有类别的商品信息
-    # objCaptureLazada.dealCategorys()
+    objCaptureLazada.dealCategorys()
     objCaptureLazada.dealHomeGoods()
     # objCaptureLazada.dealCategory(['Groceries', '/groceries/?q=sale', 19961])
     # print objCaptureLazada.getGoodInfos('fdfd','https://www.lazada.sg/shop-feeding/')
