@@ -14,7 +14,6 @@ import time
 import json
 from CrawlingProxy import CrawlingProxy,useragent
 from logger import logger
-from bs4 import BeautifulSoup
 from retrying import retry
 from datetime import datetime
 from urlparse import urljoin
@@ -36,6 +35,8 @@ class CaptureShopee(CaptureBase):
             Upgrade-Insecure-Requests:1
             User-Agent:{}
             '''
+
+
     Channel = 'shopee'
     add_sub = False
 
@@ -54,55 +55,17 @@ class CaptureShopee(CaptureBase):
     def dealCategory(self, department):
         goods_infos = []
         category = department[0]
+        category_url = department[2]
         try:
-            get_page = 2
-            formaturl='{}?page={}'
-            for i in range(get_page):
-                page_url = formaturl.format(department[1], i)
-                try:
-                    page_results = self.getGoodInfos(category, page_url)
-                    goods_infos.extend(page_results)
-                except Exception, e:
-                    logger.error('end do getGoodInfos error: {}'.format(e))
-                    logger.error('end getGoodInfos category: {} page_url: {} error'.format(category, page_url))
-                    continue
+            page_url = 'https://shopee.sg/api/v1/search_items/?by=pop&order=desc&newest=0&limit=100&categoryids={}'.format(department[1])
+            page_results = self.getGoodInfos(category, category_url, page_url)
+            goods_infos.extend(page_results)
             logger.info('dealCategory category:{} len goods_infos: {}'.format(category, len(goods_infos)))
             return goods_infos
         except Exception, e:
             logger.error('category: {} error'.format(category))
             logger.error('dealCategory error: {}.'.format(e))
             return False
-
-    @retry(stop_max_attempt_number=3, wait_fixed=2000)
-    def __getHtmlselenium(self, url, checkstr, timeout=30):
-        from selenium import webdriver
-        driver = None
-        try:
-            driver = webdriver.PhantomJS(executable_path=self.phantomjs_path)
-            driver.set_page_load_timeout(30)
-            driver.set_script_timeout(30)
-            driver.get(url)
-            startTime = datetime.now()
-            endTime = datetime.now()
-            while ((endTime-startTime).seconds < timeout):
-                try:
-                    driver.find_element_by_xpath(checkstr)
-                    break
-                except Exception, e:
-                    time.sleep(1)
-                endTime = datetime.now()
-            else:
-                raise TimeoutException('ishopchangi __getHtmlselenium timeout')
-            driver.implicitly_wait(10)
-            page = driver.page_source.encode('utf-8') if isinstance(driver.page_source, (str, unicode)) else driver.page_source
-            logger.debug('driver.page_source: {}'.format(page))
-            return page
-        except Exception, e:
-            logger.error('__getHtmlselenium error:{},retry it'.format(e))
-            raise
-        finally:
-            if driver:
-                driver.quit()
 
     '''
     function: 获取单页商品信息
@@ -111,92 +74,68 @@ class CaptureShopee(CaptureBase):
     @return: True or False or raise
     '''
     @retry(stop_max_attempt_number=3, wait_fixed=3000)
-    def getGoodInfos(self, category, pageurl):
+    def getGoodInfos(self, category, category_url, page_url):
+        headers = {"cookie": "csrftoken=se23P6QTCViDCMbZuVNgZXs2rqohW4ZA",
+                   "referer": category_url,
+                   "x-csrftoken": "se23P6QTCViDCMbZuVNgZXs2rqohW4ZA"}
+        result_datas = []
+        format_url = '{}-i.{}.{}'
+        image_url = 'https://cfshopeesg-a.akamaihd.net/file/{}'
         try:
-            logger.debug('pageurl: {}'.format(pageurl))
-            result_datas = []
-            page_source = self.__getHtmlselenium(pageurl,'//*[@id="main"]/div/div/div[3]/div[2]/div[1]/div[4]/div[2]/div/div[2]/div[1]')
-            soup = BeautifulSoup(page_source, 'lxml')
-            goods_headers = soup.findAll('script', {'type': 'application/ld+json'})
-            resultHerder = {}
-            for goods_header in goods_headers:
-                good = json.loads(goods_header.contents[0].encode('utf-8'))
-                resultHerder[good.get('url')] = good.get('image')
-
-            goods_infos = soup.findAll('div', {'class：','shopee-search-result-view__item-card'})
+            iterms_infos = self.getHtml(page_url, self.header)
+            iterms_infos = json.loads(iterms_infos)['items']
+            page_url = 'https://shopee.sg/api/v1/items/'
+            data = {"item_shop_ids": iterms_infos}
+            iterms_infos = self.getHtml(page_url, headers, data=json.dumps(data))
+            goods_infos = json.loads(iterms_infos)
             for goods_info in goods_infos:
                 resultData = {}
                 resultData['CHANNEL'.lower()] = self.Channel
                 resultData['KIND'.lower()] = category
                 resultData['SITE'.lower()] = 'category'
                 resultData['STATUS'.lower()] = '01'
-                try:
-                    good_link = urljoin(self.home_url, goods_info.find('a', {'class': 'shopee-item-card--link'}).attrs['href'])
-                    resultData['LINK'.lower()] = good_link
+                good_title = goods_info.get('name')
+                good_title = self.filter_emoji(good_title)
+                good_title = good_title.encode('utf-8')
+                resultData['NAME'.lower()] = good_title
+                shopid = goods_info.get('shopid')
+                itemid = goods_info.get('itemid')
+                link_name = good_title.replace(' ', '-').replace('100%', '100%25').replace(':', '').replace('™', '%E2%84%A2').replace('15%', '15')
+                link_after = format_url.format(link_name, shopid, itemid)
+                good_link = urljoin(self.home_url, link_after)
+                resultData['LINK'.lower()] = good_link
+                # try:
+                #     self.getHtml(good_link, {'user-agent':'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.84 Safari/537.36'})
+                # except Exception:
+                #     print good_link
 
-                    good_img = resultHerder.get(good_link)
-                    if not good_img:
-                        logger.error('good_link: {} not get image error'.format(good_link))
-                        continue
-                    resultData['MAIN_IMAGE'.lower()] = good_img
+                resultData['PRODUCT_ID'.lower()] = itemid
+                resultData['MAIN_IMAGE'.lower()] = image_url.format(goods_info.get('image'))
 
-                    pattern = re.compile(r'-i\.\d+\.\d+', re.M)
-                    good_id = pattern.findall(good_link)[0]
-                    resultData['PRODUCT_ID'.lower()] = good_id.split('.')[-1]
+                BeforePriceInfo = goods_info.get('price_before_discount', 0)
+                resultData['Before_AMOUNT'.lower()] = self.format_price(BeforePriceInfo, 5)
 
-                    good_title = goods_info.find('div', {'class': 'shopee-item-card__text-name'}).getText().strip('\n').strip().strip('\n')
-                    good_title = CaptureShopee.filter_emoji(good_title)
-                    resultData['NAME'.lower()] = good_title
+                PriceInfo = goods_info.get('price', 0)
+                resultData['AMOUNT'.lower()] = self.format_price(PriceInfo, 5)
 
-                    try:
-                        BeforePriceInfo = goods_info.find('div', {'class': 'shopee-item-card__original-price'}).getText().strip('$')
-                        good_maxBeforeDealPrice = float(BeforePriceInfo)
-                        resultData['Before_AMOUNT'.lower()] = good_maxBeforeDealPrice
-                    except Exception, e:
-                        # logger.error('good_maxDealPrice error: {}'.format(e))
-                        resultData['Before_AMOUNT'.lower()] = 0
-
-                    try:
-                        PriceInfo = goods_info.find('div', {'class': 'shopee-item-card__current-price'}).getText().strip('$')
-                        good_maxDealPrice = float(PriceInfo)
-                        resultData['AMOUNT'.lower()] = good_maxDealPrice
-                    except Exception, e:
-                        # logger.error('good_maxDealPrice error: {}'.format(e))
-                        resultData['AMOUNT'.lower()] = 0
-
-                    resultData['Currency'.lower()] = 'SGD'
-                    try:
-                        good_dealcnt = goods_info.find('div', {'class':"shopee-item-card__btn-like__text"}).getText().strip()
-                        resultData['DISPLAY_COUNT'.lower()] = int(good_dealcnt)
-                    except Exception, e:
-                        # logger.error('good_dealcnt error: {}'.format(e))
-                        resultData['DISPLAY_COUNT'.lower()] = 0
-
-                    try:
-                        goods_info.find('div', {'class':"shopee-horizontal-badge shopee-preferred-seller-badge"}).getText().strip()
-                        resultData['COMMEND_FLAG'.lower()] = 1
-                    except Exception, e:
-                        # logger.error('good_dealcnt error: {}'.format(e))
-                        resultData['COMMEND_FLAG'.lower()] = 0
-                    resultData['CREATE_TIME'.lower()] = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
-
-                    result_datas.append(resultData)
-                except Exception, e:
-                    # logger.error('error: {}'.format(e))
-                    continue
+                resultData['Currency'.lower()] = goods_info.get('currency')
+                resultData['DISPLAY_COUNT'.lower()] = goods_info.get('show_discount')
+                resultData['COMMEND_FLAG'.lower()] = '1' if goods_info.get('is_shopee_verified') else '0'
+                resultData['CREATE_TIME'.lower()] = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
+                result_datas.append(resultData)
             if not result_datas:
                 raise ValueError('get result_datas error')
             return result_datas
         except Exception, e:
-            # logger.error('getGoodInfos error:{},retry it'.format(e))
-            logger.error('category: {},pageurl：{}'.format(category, pageurl))
-            # logger.error('page_source: {}'.format(page_source))
+            logger.error('getGoodInfos error:{}'.format(e))
+            logger.error('category: {},category_url: {}'.format(category, category_url))
             raise
 
     def get_department(self):
         print '*'*40
         logger.info('get_department: {}'.format(self.__get_department()))
         print '*'*40
+
 
     '''
     function: 获取类别信息
@@ -205,10 +144,11 @@ class CaptureShopee(CaptureBase):
     '''
     @retry(stop_max_attempt_number=5, wait_fixed=3000)
     def __get_department(self):
-        format_main = 'https://shopee.sg/{}-cat.{}'
-        format_sub = 'https://shopee.sg/{}-cat.{}.{}'
         try:
-            results = []
+            format_main = 'https://shopee.sg/{}-cat.{}'
+            format_sub = 'https://shopee.sg/{}-cat.{}.{}'
+            results_f = []
+            results_s = []
             page_source = self.getHtml(self.department_url, self.header)
             page_infos = json.loads(page_source)
             for page_info in page_infos:
@@ -222,7 +162,7 @@ class CaptureShopee(CaptureBase):
                 else:
                     tmp = category.replace(' ', '-')
                 url = format_main.format(tmp, cat_id)
-                results.append([category, url])
+                results_f.append([category, cat_id, url])
                 #sub
                 if self.add_sub:
                     sub_categorys = page_info[u'sub']
@@ -234,12 +174,11 @@ class CaptureShopee(CaptureBase):
                         else:
                             tmp = category.replace(' ', '-')
                         url = format_sub.format(tmp, cat_id, sub_cat_id)
-                        results.append([category, url])
-            return results
+                        results_s.append([category, sub_cat_id, url])
+            return results_s if self.add_sub else results_f
         except Exception, e:
             logger.error('__get_department error: {}, retry it'.format(e))
             raise
-
     '''
     function: 获取所有分类的商品信息
     @
@@ -267,14 +206,13 @@ class CaptureShopee(CaptureBase):
             good_datas = resultDatas
             select_sql = format_select.format(self.TABLE_NAME_PRODUCT)
             table = self.TABLE_NAME_PRODUCT
-            replace_insert_columns = ['CHANNEL','KIND','SITE','PRODUCT_ID','LINK','MAIN_IMAGE','NAME','COMMEND_FLAG', 'Currency','AMOUNT','Before_AMOUNT','CREATE_TIME','STATUS']
+            replace_insert_columns = ['CHANNEL','KIND','SITE','PRODUCT_ID','LINK','MAIN_IMAGE','NAME','COMMEND_FLAG', 'Currency', 'AMOUNT','Before_AMOUNT','CREATE_TIME','STATUS']
             select_columns = ['ID', 'STATUS']
             return self._saveDatas(good_datas, table, select_sql, replace_insert_columns, select_columns)
         except Exception, e:
             logger.error('dealCategorys error: {}'.format(e))
         finally:
             logger.info('dealCategorys end')
-
     '''
     function: 获取并存储首页滚动栏的商品信息
     @return: True or raise
@@ -319,21 +257,18 @@ class CaptureShopee(CaptureBase):
 
 def main():
     startTime = datetime.now()
-    # objCrawlingProxy = CrawlingProxy()
-    # proxy = objCrawlingProxy.getRandomProxy()
-    # objCaptureAmazon = CaptureAmazon(useragent,proxy)
-
     objCaptureShopee = CaptureShopee(useragent)
     # 获取所有类别id
     # objCaptureShopee.get_department()
     # 查询并入库所有类别的商品信息
-    # objCaptureShopee.dealCategorys()
+    objCaptureShopee.dealCategorys()
     # # 查询并入库首页推荐商品信息
-    objCaptureShopee.dealHomeGoods()
+    # objCaptureShopee.dealHomeGoods()
     # print objCaptureShopee.getGoodInfos('aaaa','https://shopee.sg/Mobile-Gadgets-cat.8?page=0')
-    # print objCaptureShopee.getHtml('https://shopee.sg/Men\'s-Shoes-cat.168',objCaptureShopee.header)
+    # print objCaptureShopee.getHtml('https://shopee.sg/api/banner/get_list?type=activity',objCaptureShopee.header)
     # print objCaptureShopee.getHtmlselenium('https://shopee.sg')
     endTime = datetime.now()
     print 'seconds', (endTime - startTime).seconds
 if __name__ == '__main__':
     main()
+

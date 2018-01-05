@@ -8,6 +8,7 @@
 # @Software: PyCharm
 # @Desc    :
 import MySQLdb
+import decimal
 from logger import logger
 MYSQL_BATCH_NUM = 20
 class MysqldbOperate(object):
@@ -134,7 +135,7 @@ class MysqldbOperate(object):
                 if not param:
                     ret.append('""')
                     continue
-                if isinstance(param, (int, long, float, bool)):
+                if isinstance(param, (int, long, float, bool, decimal.Decimal)):
                     ret.append(str(param))
                 elif isinstance(param, str):
                     param = param.replace('"','\'')

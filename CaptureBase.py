@@ -17,7 +17,7 @@ from logger import logger
 from retrying import retry
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium import webdriver
-
+from decimal import Decimal
 class TimeoutException(Exception):
     def __init__(self, err='operation timed out'):
         super(TimeoutException, self).__init__(err)
@@ -241,6 +241,12 @@ class CaptureBase(object):
             co = re.compile(u'[\uD800-\uDBFF][\uDC00-\uDFFF]')
         return co.sub(restr, desstr)
 
+    @staticmethod
+    def format_price(res_price, digits):
+        price = str(res_price)
+        price = price.zfill(digits+1)
+        price = price[:-digits]+'.'+price[-digits:]
+        return Decimal(price).quantize(Decimal('0.00'))
     '''
     function: 获取并存储首页滚动栏的商品信息
     @return: True or Raise
