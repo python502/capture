@@ -175,6 +175,8 @@ class CaptureGrobpay(CaptureBase):
             logger.info('After the data remove duplicates: {}'.format(len(resultDatas)))
             if not resultDatas:
                 raise ValueError('dealMerchants get no resultDatas ')
+            for resultData in resultDatas:
+                resultData['address'] = resultData.get('address').encode('utf-8')
             format_select = 'SELECT ID FROM {} WHERE address="{{address}}" AND name="{{name}}"ORDER BY CREATE_TIME DESC'
             good_datas = resultDatas
             select_sql = format_select.format(self.TABLE_NAME_GROBPAY)
@@ -186,12 +188,69 @@ class CaptureGrobpay(CaptureBase):
             logger.error('dealMerchants error: {}'.format(e))
         finally:
             logger.info('dealMerchants end')
+    def get_diff_nums(self, location_names):
+        diff = []
+        for location_name in location_names:
+            sql_1 = 'select count(*) from {} where area_name="{}"'.format(self.TABLE_NAME_GROBPAY, location_name)
+            sql_2 = 'select num from {} where area_name="{}"'.format('grobpay_num_info', location_name)
+            result_1 = self.mysql.sql_query(sql_1)
+            result_1 = result_1[0].get('count(*)', 0) if result_1 else 0
+            result_2 = self.mysql.sql_query(sql_2)
+            result_2 = result_2[0].get('num', 0) if result_2 else 0
+            if result_1 != result_2:
+                diff.append({'area_name': location_name,
+                            'before_num': result_2,
+                            'after_num': result_1})
+        logger.info('diff area: {}'.format(diff))
 
+    def update_nums(self, location_names):
+        info = []
+        for location_name in location_names:
+            sql_1 = 'select count(*) from {} where area_name="{}"'.format(self.TABLE_NAME_GROBPAY, location_name)
+            result_1 = self.mysql.sql_query(sql_1)
+            result_1 = result_1[0].get('count(*)', 0) if result_1 else 0
+            info.append({'area_name': location_name,
+                            'num': result_1})
+        logger.info('info area: {}'.format(info))
+        operate_type = 'replace'
+        table = 'grobpay_num_info'
+        replace_insert_columns = ['area_name','num']
+        update_datas = info
+        result_update = self.mysql.insert_batch(operate_type, table, replace_insert_columns, update_datas)
+        logger.info('saveDatas result_update: {}'.format(result_update))
+
+    def _saveDatas(self, good_datas, table, select_sql, replace_insert_columns, select_columns):
+        try:
+            result_insert, result_update = True, True
+            if not good_datas:
+                logger.error('saveDatas not get datas')
+                return False
+            (insert_datas, update_datas) = self._checkDatas(select_sql, good_datas, select_columns)
+            if insert_datas:
+                operate_type = 'insert'
+                l = len(insert_datas)
+                logger.info('len insert_datas: {}'.format(l))
+                result_insert = self.mysql.insert_batch(operate_type, table, replace_insert_columns, insert_datas)
+                logger.info('insert_datas: {}'.format(insert_datas))
+                logger.info('insert_datas: {}'.format(insert_datas))
+            if update_datas:
+                operate_type = 'replace'
+                l = len(update_datas)
+                logger.info('len update_datas: {}'.format(l))
+                replace_insert_columns.insert(0, 'ID')
+                result_update = self.mysql.insert_batch(operate_type, table, replace_insert_columns, update_datas)
+                logger.info('saveDatas result_update: {}'.format(result_update))
+            return result_insert and result_update
+        except Exception, e:
+            logger.error('saveDatas error: {}.'.format(e))
+            return False
 def main():
     startTime = datetime.now()
     objCaptureGrobpay = CaptureGrobpay(useragent)
     location_names = Location2coordinate.iterkeys()
     objCaptureGrobpay.dealMerchants(location_names)
+    objCaptureGrobpay.get_diff_nums(location_names)
+    # objCaptureGrobpay.update_nums(location_names)
     # location_information = {'latitude':'1.3525845',
     #                         'longitude':'103.83521159999998'}
     # objCaptureGrobpay.get_merchant_infos(location_information, 'ffffffff')

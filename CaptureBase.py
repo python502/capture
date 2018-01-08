@@ -177,9 +177,9 @@ class CaptureBase(object):
         insert_datas=[]
         update_datas=[]
         for sourcedata in sourcedatas:
-            sql = select_sql.format(**sourcedata)
-            logger.debug('select sql: {}'.format(sql))
             try:
+                sql = select_sql.format(**sourcedata)
+                logger.debug('select sql: {}'.format(sql))
                 result = self.mysql.sql_query(sql)
                 if not result:
                     insert_datas.append(sourcedata)
