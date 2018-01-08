@@ -8,6 +8,7 @@
 # @Software: PyCharm
 # @Desc    :
 from CrawlingProxy import UserAgents
+from CaptureAgoda import CaptureAgoda
 from CaptureAlthea import CaptureAlthea
 from CaptureAmazon import CaptureAmazon
 from CaptureAngelflorist import CaptureAngelflorist
@@ -39,6 +40,7 @@ class InfoConfig(object):
         self.capture_type = capture_type
 
 nodes = {
+    'Agoda': InfoConfig(CaptureAgoda(random.choice(UserAgents)), 3),
     'Althea': InfoConfig(CaptureAlthea(random.choice(UserAgents)), 3),
     'Amazon': InfoConfig(CaptureAmazon(random.choice(UserAgents)), 3),
     'Angelflorist': InfoConfig(CaptureAngelflorist(random.choice(UserAgents)), 3),
