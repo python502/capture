@@ -14,7 +14,7 @@ from CaptureAngelflorist import CaptureAngelflorist
 from CaptureAsos import CaptureAsos
 from CaptureCreative import CaptureCreative
 from CaptureEzbug import CaptureEzbug
-from CaptureGrobpay import CaptureGrobpay
+from CaptureHervelvetvase import CaptureHervelvetvase
 from CaptureHipvan import CaptureHipvan
 from CaptureHonestbee import CaptureHonestbee
 from CaptureHotels import CaptureHotels
@@ -45,6 +45,7 @@ nodes = {
     'Asos': InfoConfig(CaptureAsos(random.choice(UserAgents)), 3),
     'Creative': InfoConfig(CaptureCreative(random.choice(UserAgents)), 3),
     'Ezbug': InfoConfig(CaptureEzbug(random.choice(UserAgents)), 3),
+    'Hervelvetvase': InfoConfig(CaptureHervelvetvase(random.choice(UserAgents)), 3),
     'Hipvan': InfoConfig(CaptureHipvan(random.choice(UserAgents)), 3),
     'Honestbee': InfoConfig(CaptureHonestbee(random.choice(UserAgents)), 3),
     'Hotels': InfoConfig(CaptureHotels(random.choice(UserAgents)), 3),

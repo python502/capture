@@ -12,12 +12,8 @@ Created on 2016年6月4日
 
 @author: Administrator
 '''
-import os
 from CaptureBase import CaptureBase
-import re
 import time
-import json
-import copy
 from CrawlingProxy import CrawlingProxy,useragent
 from logger import logger
 from bs4 import BeautifulSoup
@@ -46,28 +42,51 @@ class CaptureAsos(CaptureBase):
 
     def __del__(self):
         super(CaptureAsos, self).__del__()
+    # def __Home_goods(self, url, kind):
+    #     try:
+    #         result_datas= []
+    #         page_source = self.getHtml(url, self.header)
+    #         soup = BeautifulSoup(page_source, 'lxml')
+    #         pre_load_data = soup.find('article', {'class': 'salesBanner'}).find('ul', {'class': 'carousel__list js-carouselList'}).findAll('li')
+    #         for load_data in pre_load_data:
+    #             logger.debug('load_data: {}'.format(load_data))
+    #             resultData = {}
+    #             resultData['CHANNEL'.lower()] = self.Channel
+    #             resultData['STATUS'.lower()] = '01'
+    #             resultData['MIN_IMAGE'.lower()] = kind
+    #             resultData['LINK'.lower()] = urljoin(self.home_url, load_data.find('a').attrs['href'])
+    #             resultData['TITLE'.lower()] = load_data.find('img').attrs['alt']
+    #             resultData['MAIN_IMAGE'.lower()] = load_data.find('img').attrs['data-src']
+    #             resultData['CREATE_TIME'.lower()] = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
+    #             result_datas.append(resultData)
+    #         return result_datas
+    #     except Exception, e:
+    #         logger.error('__Home_man_goods error:{},retry it'.format(e))
+    #         raise
     def __Home_goods(self, url, kind):
         try:
             result_datas= []
-            page_source = self.getHtml(url, self.header)
+            page_source = self.getHtmlselenium(url)
             soup = BeautifulSoup(page_source, 'lxml')
-            pre_load_data = soup.find('article', {'class': 'salesBanner'}).find('ul', {'class': 'carousel__list js-carouselList'}).findAll('li')
+            pre_load_data = soup.findAll('li', {'class': 'articleFeedItem'})
             for load_data in pre_load_data:
-                logger.debug('load_data: {}'.format(load_data))
-                resultData = {}
-                resultData['CHANNEL'.lower()] = self.Channel
-                resultData['STATUS'.lower()] = '01'
-                resultData['MIN_IMAGE'.lower()] = kind
-                resultData['LINK'.lower()] = urljoin(self.home_url, load_data.find('a').attrs['href'])
-                resultData['TITLE'.lower()] = load_data.find('img').attrs['alt']
-                resultData['MAIN_IMAGE'.lower()] = load_data.find('img').attrs['data-src']
-                resultData['CREATE_TIME'.lower()] = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
-                result_datas.append(resultData)
+                try:
+                    logger.debug('load_data: {}'.format(load_data))
+                    resultData = {}
+                    resultData['CHANNEL'.lower()] = self.Channel
+                    resultData['STATUS'.lower()] = '01'
+                    resultData['MIN_IMAGE'.lower()] = kind
+                    resultData['LINK'.lower()] = urljoin(self.home_url, load_data.find('a').attrs['href'])
+                    resultData['TITLE'.lower()] = load_data.find('span', {'class': 'articleFeedItem__title'}).getText().strip()
+                    resultData['MAIN_IMAGE'.lower()] = load_data.find('img').attrs['src']
+                    resultData['CREATE_TIME'.lower()] = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
+                    result_datas.append(resultData)
+                except Exception:
+                    continue
             return result_datas
         except Exception, e:
             logger.error('__Home_man_goods error:{},retry it'.format(e))
             raise
-
 
     '''
     function: 获取并存储首页滚动栏的商品信息

@@ -12,14 +12,11 @@ Created on 2016年6月4日
 
 @author: Administrator
 '''
-import os
 from CaptureBase import CaptureBase
-import re
 import time
 import json
 from CrawlingProxy import CrawlingProxy,useragent
 from logger import logger
-from bs4 import BeautifulSoup
 from retrying import retry
 from datetime import datetime
 from urlparse import urljoin
@@ -175,10 +172,6 @@ class CaptureRedmart(CaptureBase):
 
 def main():
     startTime = datetime.now()
-    # objCrawlingProxy = CrawlingProxy()
-    # proxy = objCrawlingProxy.getRandomProxy()
-    # objCaptureAmazon = CaptureAmazon(useragent,proxy)
-
     objCaptureRedmart = CaptureRedmart(useragent)
     # 获取所有类别id
     # objCaptureRedmart.get_department()

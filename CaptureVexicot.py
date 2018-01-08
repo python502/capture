@@ -12,7 +12,6 @@ Created on 2016年6月4日
 
 @author: Administrator
 '''
-import os
 from CaptureBase import CaptureBase
 import time
 from CrawlingProxy import useragent

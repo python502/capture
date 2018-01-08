@@ -15,7 +15,6 @@ Created on 2016年6月4日
 import os
 from CaptureBase import CaptureBase
 import re
-import json
 import time
 from CrawlingProxy import CrawlingProxy,useragent
 from logger import logger
@@ -229,10 +228,6 @@ class CaptureCreative(CaptureBase):
 
 def main():
     startTime = datetime.now()
-    # objCrawlingProxy = CrawlingProxy()
-    # proxy = objCrawlingProxy.getRandomProxy()
-    # objCaptureAmazon = CaptureAmazon(useragent,proxy)
-
     objCaptureCreative = CaptureCreative(useragent)
     # 查询并入库所有类别的商品信息
     # objCaptureCreative.get_department()

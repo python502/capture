@@ -7,9 +7,7 @@
 # @File    : CaptureShopee.py
 # @Software: PyCharm
 # @Desc    :
-import os
 from CaptureBase import CaptureBase, TimeoutException
-import re
 import time
 import json
 from CrawlingProxy import CrawlingProxy,useragent

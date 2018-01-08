@@ -14,10 +14,7 @@ Created on 2016年6月4日
 '''
 import os
 from CaptureBase import CaptureBase
-import re
 import time
-import json
-import copy
 from CrawlingProxy import CrawlingProxy,useragent
 from logger import logger
 from bs4 import BeautifulSoup

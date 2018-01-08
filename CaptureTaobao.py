@@ -14,11 +14,9 @@ import time
 from CrawlingProxy import CrawlingProxy,useragent
 from logger import logger
 from bs4 import BeautifulSoup
-from retrying import retry
 from datetime import datetime
 from CaptureBase import CaptureBase, TimeoutException
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
-from selenium import webdriver
+
 
 
 
@@ -401,10 +399,6 @@ class CaptureTaobao(CaptureBase):
 
 def main():
     startTime = datetime.now()
-    # objCrawlingProxy = CrawlingProxy()
-    # proxy = objCrawlingProxy.getRandomProxy()
-    # objCaptureAmazon = CaptureAmazon(useragent,proxy)
-
     objCaptureTaobao = CaptureTaobao(useragent)
     # 获取所有类别url
     # objCaptureTaobao.get_department()

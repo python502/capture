@@ -7,13 +7,10 @@
 # @File    : CaptureHotels.py
 # @Software: PyCharm
 # @Desc    :
-import os
 from CaptureBase import CaptureBase, TimeoutException
 import re
 import time
 import json
-import requests
-
 from CrawlingProxy import CrawlingProxy,useragent
 from logger import logger
 from bs4 import BeautifulSoup

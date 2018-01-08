@@ -258,9 +258,6 @@ class CaptureEzbug(CaptureBase):
 
 def main():
     startTime = datetime.now()
-    # objCrawlingProxy = CrawlingProxy()
-    # proxy = objCrawlingProxy.getRandomProxy()
-    # objCaptureAmazon = CaptureAmazon(useragent,proxy)
 
     objCaptureEzbug = CaptureEzbug(useragent)
     # 获取所有类别id
