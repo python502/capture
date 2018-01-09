@@ -232,7 +232,7 @@ class CaptureGrobpay(CaptureBase):
                 logger.info('len insert_datas: {}'.format(l))
                 result_insert = self.mysql.insert_batch(operate_type, table, replace_insert_columns, insert_datas)
                 logger.info('insert_datas: {}'.format(insert_datas))
-                logger.info('insert_datas: {}'.format(insert_datas))
+                logger.info('saveDatas insert_datas: {}'.format(result_insert))
             if update_datas:
                 operate_type = 'replace'
                 l = len(update_datas)
@@ -247,9 +247,9 @@ class CaptureGrobpay(CaptureBase):
 def main():
     startTime = datetime.now()
     objCaptureGrobpay = CaptureGrobpay(useragent)
-    location_names = Location2coordinate.iterkeys()
+    location_names = Location2coordinate.keys()
     objCaptureGrobpay.dealMerchants(location_names)
-    objCaptureGrobpay.get_diff_nums(location_names)
+    # objCaptureGrobpay.get_diff_nums(location_names)
     # objCaptureGrobpay.update_nums(location_names)
     # location_information = {'latitude':'1.3525845',
     #                         'longitude':'103.83521159999998'}
