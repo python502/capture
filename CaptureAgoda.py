@@ -14,7 +14,6 @@ Created on 2016年6月4日
 '''
 from CaptureBase import CaptureBase
 import time
-import copy
 import re
 import json
 from CrawlingProxy import CrawlingProxy,useragent
