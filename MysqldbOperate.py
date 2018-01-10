@@ -15,6 +15,11 @@ class MysqldbOperate(object):
     '''
     classdocs
     '''
+    __instance = None
+    def __new__(cls, *args, **kwargs):
+        if MysqldbOperate.__instance is None:
+            MysqldbOperate.__instance = object.__new__(cls, *args, **kwargs)
+        return MysqldbOperate.__instance
 
     def __init__(self,dict_mysql):
         self.conn = None
@@ -26,7 +31,7 @@ class MysqldbOperate(object):
         else:
             try:
                 self.conn = MySQLdb.connect(host=dict_mysql['host'], user=dict_mysql['user'], \
-                                    passwd=dict_mysql['passwd'], db=dict_mysql['db'],port=dict_mysql['port'],charset='utf8')
+                                    passwd=dict_mysql['passwd'], db=dict_mysql['db'],port=dict_mysql['port'],charset='utf8',connect_timeout=30)
                 self.cur = self.conn.cursor(MySQLdb.cursors.DictCursor)
             except Exception,e:
                 logger.error('__init__ fail:{}'.format(e))
@@ -174,4 +179,4 @@ def main2():
     data = ('1','d')
     omysql.sql_exec(sql , data)
 if __name__ == '__main__':
-    main1()
+    main2()
