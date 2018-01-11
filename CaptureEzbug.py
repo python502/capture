@@ -263,7 +263,7 @@ def main():
     # 获取所有类别id
     # objCaptureEzbug.get_department()
     # 查询并入库所有类别的商品信息
-    # objCaptureEzbug.dealCategorys()
+    objCaptureEzbug.dealCategorys()
     # objCaptureEzbug.dealCategory(['Women\'s Clothing', '/category/5?ezspm=1.20000006.3.0.5'])
     # print objCaptureEzbug.getGoodInfos('Women\'s Clothing', 'https://ezbuy.sg/category/5?ezspm=1.10000000.3.0.5&offset=56')
     # # 查询并入库首页推荐商品信息

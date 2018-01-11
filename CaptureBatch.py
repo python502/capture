@@ -15,6 +15,7 @@ from CaptureAngelflorist import CaptureAngelflorist
 from CaptureAsos import CaptureAsos
 from CaptureCreative import CaptureCreative
 from CaptureEzbug import CaptureEzbug
+from CaptureForever21 import CaptureForever21
 from CaptureHervelvetvase import CaptureHervelvetvase
 from CaptureHipvan import CaptureHipvan
 from CaptureHonestbee import CaptureHonestbee
@@ -47,6 +48,7 @@ nodes = {
     'Asos': InfoConfig(CaptureAsos(random.choice(UserAgents)), 3),
     'Creative': InfoConfig(CaptureCreative(random.choice(UserAgents)), 3),
     'Ezbug': InfoConfig(CaptureEzbug(random.choice(UserAgents)), 3),
+    'Forever21': InfoConfig(CaptureForever21(random.choice(UserAgents)), 3),
     'Hervelvetvase': InfoConfig(CaptureHervelvetvase(random.choice(UserAgents)), 3),
     'Hipvan': InfoConfig(CaptureHipvan(random.choice(UserAgents)), 3),
     'Honestbee': InfoConfig(CaptureHonestbee(random.choice(UserAgents)), 3),
