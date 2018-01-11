@@ -90,7 +90,7 @@ def save_result(result):
 def runner_capture():
     try:
         logger.info('runner_capture is begin.')
-        pool = multiprocessing.Pool(processes=5)
+        pool = multiprocessing.Pool(processes=10)
         for key in nodes.iterkeys():
             pool.apply_async(exec_task, (key,), callback=save_result)  # 维持执行的进程总数为processes，当一个进程执行完毕后会添加新的进程进去
         pool.close()
