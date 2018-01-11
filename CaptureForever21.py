@@ -176,7 +176,6 @@ class CaptureForever21(CaptureBase):
     @firsturl： 商品页url
     @return: True or False or raise
     '''
-    @retry(stop_max_attempt_number=5, wait_fixed=3000)
     def getGoodInfos(self, department, pageSize, pageNo):
         category = department[0]
         product_url = 'https://www.forever21.com/gl/shop/Catalog/Product/sale/'
@@ -185,12 +184,13 @@ class CaptureForever21(CaptureBase):
             logger.debug('category: {}pageNo: {}'.format(category, pageNo))
             GetProducts = {
                 'WOMEN': {"brand": "f21", "category": "app-main"},
-                'MEN':{"brand": "21men", "category": "mens-main"},
-                'PLUS SIZE':{"brand":"plus","category":"plus_size-main"},
-                'GIRLS':{"brand":"girls","category":"girls_main"},
-                'SALE':{"brand":"f21","category":"sale"}
+                'MEN': {"brand": "21men", "category": "mens-main"},
+                'PLUS SIZE': {"brand": "plus", "category": "plus_size-main"},
+                'GIRLS': {"brand": "girls", "category": "girls_main"},
+                'SALE': {"brand": "f21", "category": "sale"}
             }
-            data = {"page":{"pageNo":pageNo,"pageSize":pageSize},"filter":{"sizeList":[],"colorList":[],"price":{"minPrice":0,"maxPrice":250},"manualList":[]},"sort":{"sortType":""},"count":{"products":""}}
+            data = {"page":{"pageNo": pageNo, "pageSize": pageSize}, "filter": {"sizeList": [], "colorList": [],\
+                                                                        "price": {"minPrice": 0, "maxPrice": 250}, "manualList": []}, "sort": {"sortType": ""}, "count": {"products": ""}}
             data.update(GetProducts.get(category))
             header_produces = self._getDict4str(self.HEADER_PRODUCTS.format(department[1], self.user_agent))
             result_datas = []
@@ -225,9 +225,7 @@ class CaptureForever21(CaptureBase):
                 raise ValueError('get result_datas error')
             return result_datas
         except Exception, e:
-            logger.error('getGoodInfos category error:{},retry it'.format(category, e))
-            # logger.error('category: {},pageurl：{}'.format(category, pageurl))
-            # logger.error('page_source: {}'.format(page_source))
+            logger.error('getGoodInfos category error:{}'.format(category, e))
             raise
 def main():
     startTime = datetime.now()
