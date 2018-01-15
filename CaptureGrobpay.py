@@ -96,6 +96,7 @@ class CaptureGrobpay(CaptureBase):
         marchants = json.loads(infos)
         for marchant in marchants:
             marchant['area_name'] = area_name
+            marchant['name'] = marchant.get('name').replace('"', '')
             marchant['create_time'] = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
         logger.info('get_merchant_infos area_name {} get merchant {}'.format(area_name, len(marchants)))
         return marchants
@@ -200,8 +201,10 @@ class CaptureGrobpay(CaptureBase):
             if result_1 != result_2:
                 diff.append({'area_name': location_name,
                             'before_num': result_2,
-                            'after_num': result_1})
-        logger.info('diff area: {}'.format(diff))
+                            'after_num': result_1,
+                             'diff_count': result_1-result_2})
+        logger.info('diff area: {}'.format(sorted(diff, key=lambda asd: (asd['diff_count'], asd['area_name'])\
+                                                  , reverse=True)))
 
     def update_nums(self, location_names):
         info = []
@@ -234,12 +237,13 @@ class CaptureGrobpay(CaptureBase):
                 logger.info('insert_datas: {}'.format(insert_datas))
                 logger.info('saveDatas insert_datas: {}'.format(result_insert))
             if update_datas:
-                operate_type = 'replace'
+                # operate_type = 'replace'
                 l = len(update_datas)
                 logger.info('len update_datas: {}'.format(l))
-                replace_insert_columns.insert(0, 'ID')
-                result_update = self.mysql.insert_batch(operate_type, table, replace_insert_columns, update_datas)
-                logger.info('saveDatas result_update: {}'.format(result_update))
+                # replace_insert_columns.insert(0, 'ID')
+                result_update = True
+                # result_update = self.mysql.insert_batch(operate_type, table, replace_insert_columns, update_datas)
+                # logger.info('saveDatas result_update: {}'.format(result_update))
             return result_insert and result_update
         except Exception, e:
             logger.error('saveDatas error: {}.'.format(e))
@@ -249,7 +253,7 @@ def main():
     objCaptureGrobpay = CaptureGrobpay(useragent)
     location_names = Location2coordinate.keys()
     objCaptureGrobpay.dealMerchants(location_names)
-    # objCaptureGrobpay.get_diff_nums(location_names)
+    objCaptureGrobpay.get_diff_nums(location_names)
     # objCaptureGrobpay.update_nums(location_names)
     # location_information = {'latitude':'1.3525845',
     #                         'longitude':'103.83521159999998'}
