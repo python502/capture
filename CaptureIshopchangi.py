@@ -91,7 +91,7 @@ class CaptureIshopchangi(CaptureBase):
                 try:
                     result_data['PRODUCT_ID'.lower()] = goods_info.find('div', {'class': 'productdetails productListingItem'}).attrs['data-productid']
                     result_data['LINK'.lower()] = urljoin(self.home_url, goods_info.find('div', {'class': 'productdetails productListingItem'}).attrs['data-producturl'])
-                    result_data['MAIN_IMAGE'.lower()] = goods_info.find('div', {'class': 'productdetails productListingItem'}).find('img').attrs['src']
+                    result_data['MAIN_IMAGE'.lower()] = goods_info.find('img', {'class': 'lazy'}).attrs['data-original']
                     result_data['NAME'.lower()] = goods_info.find('div', {'class': 'productdetails productListingItem'}).attrs['data-productname']
                     result_data['AMOUNT'.lower()] = float(goods_info.find('div', {'class':'productdetails productListingItem'}).attrs['data-price'].replace(',', ''))
                     result_data['SITE'.lower()] = goods_info.find('div', {'class': 'productdetails productListingItem'}).attrs['data-category']
