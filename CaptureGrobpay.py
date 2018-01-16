@@ -55,7 +55,7 @@ Location2coordinate = {
                        'Pasir Ris Singapore': {'latitude': '1.3720937', 'longitude': '103.94737280000004'},
                        'Dairy Farm Road Singapore': {'latitude': '1.3648296', 'longitude': '103.77386520000005'},
                        }
-
+delete = False
 class CaptureGrobpay(CaptureBase):
     get_merchant_url = 'https://www.grab.com/sg/wp-admin/admin-ajax.php'
     HEADER = '''
@@ -229,13 +229,6 @@ class CaptureGrobpay(CaptureBase):
                 logger.error('saveDatas not get datas')
                 return False
             (insert_datas, update_datas) = self._checkDatas(select_sql, good_datas, select_columns)
-            if insert_datas:
-                operate_type = 'insert'
-                l = len(insert_datas)
-                logger.info('len insert_datas: {}'.format(l))
-                result_insert = self.mysql.insert_batch(operate_type, table, replace_insert_columns, insert_datas)
-                logger.info('insert_datas: {}'.format(insert_datas))
-                logger.info('saveDatas insert_datas: {}'.format(result_insert))
             if update_datas:
                 # operate_type = 'replace'
                 l = len(update_datas)
@@ -244,6 +237,24 @@ class CaptureGrobpay(CaptureBase):
                 result_update = True
                 # result_update = self.mysql.insert_batch(operate_type, table, replace_insert_columns, update_datas)
                 # logger.info('saveDatas result_update: {}'.format(result_update))
+                # data = ['id != {}'.format(i.get('id'.lower())) for i in update_datas]
+                data = tuple(int(i.get('id'.lower())) for i in update_datas)
+                select_sql = 'select id from {table} where id not in {data}'.format(table=table, data=data)
+                logger.debug('select sql: {}'.format(select_sql))
+                result = self.mysql.sql_query(select_sql)
+                logger.info('len lost_datas: {}'.format(len(result)))
+                logger.info('id in db not in updata datas:{}'.format(result))
+                if result and delete:
+                    data = tuple(int(i.get('id'.lower())) for i in result)
+                    delete_sql = 'delete from {table} where id in {data}'.format(table=table, data=data)
+                    self.mysql.sql_exec(delete_sql)
+            if insert_datas:
+                operate_type = 'insert'
+                l = len(insert_datas)
+                logger.info('len insert_datas: {}'.format(l))
+                result_insert = self.mysql.insert_batch(operate_type, table, replace_insert_columns, insert_datas)
+                logger.info('insert_datas: {}'.format(insert_datas))
+                logger.info('saveDatas insert_datas: {}'.format(result_insert))
             return result_insert and result_update
         except Exception, e:
             logger.error('saveDatas error: {}.'.format(e))
