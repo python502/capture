@@ -155,19 +155,19 @@ class CaptureAmazon(CaptureBase):
 
                 resultData['NAME'.lower()] = sourceData.get('title').strip().replace('"',r'\"')
                 resultData['DESCRIPTION'.lower()] = sourceData.get('description').strip().replace('"', r'\"')
-                resultData['Currency'.lower()] = sourceData.get('currencyCode').strip() if sourceData.get('currencyCode') else 'USD'
+                resultData['Currency'.lower()] = sourceData.get('currencyCode') or 'USD'
                 # 原数据float
-                resultData['AMOUNT'.lower()] = sourceData.get('minDealPrice') if sourceData.get('minDealPrice') else 0
-                resultData['HIGH_AMOUNT'.lower()] = sourceData.get('maxDealPrice') if sourceData.get('maxDealPrice') else 0
+                resultData['AMOUNT'.lower()] = sourceData.get('minDealPrice') or 0
+                resultData['HIGH_AMOUNT'.lower()] = sourceData.get('maxDealPrice') or 0
                 # if resultData['HIGH_AMOUNT'.lower()] > resultData['AMOUNT'.lower()]:
                 #     continue
-                resultData['Before_AMOUNT'.lower()] = sourceData.get('minListPrice') if sourceData.get('minListPrice') else 0
-                resultData['Before_HIGH_AMOUNT'.lower()] = sourceData.get('maxListPrice') if sourceData.get('maxListPrice') else 0
+                resultData['Before_AMOUNT'.lower()] = sourceData.get('minListPrice') or 0
+                resultData['Before_HIGH_AMOUNT'.lower()] = sourceData.get('maxListPrice') or 0
                 # 原数据bool
                 resultData['COMMEND_FLAG'.lower()] = '1' if sourceData.get('isFeatured') else '0'
                 resultData['CREATE_TIME'.lower()] = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
                 # 原数据int
-                resultData['DISPLAY_COUNT'.lower()] = sourceData.get('totalReviews') if sourceData.get('totalReviews') else 0
+                resultData['DISPLAY_COUNT'.lower()] = sourceData.get('totalReviews') or 0
 
                 resultData['RESERVE'.lower()] = sourceData.get('dealID').strip()
                 # resultData = [time.strftime('%Y-%m-%d',time.localtime(time.time()))]  #日期
