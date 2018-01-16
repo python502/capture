@@ -245,8 +245,10 @@ class CaptureGrobpay(CaptureBase):
                 logger.info('len lost_datas: {}'.format(len(result)))
                 logger.info('id in db not in updata datas:{}'.format(result))
                 if result and delete:
+                    logger.info('need to delete some datas')
                     data = tuple(int(i.get('id'.lower())) for i in result)
                     delete_sql = 'delete from {table} where id in {data}'.format(table=table, data=data)
+                    logger.debug('delete_sql sql: {}'.format(delete_sql))
                     self.mysql.sql_exec(delete_sql)
             if insert_datas:
                 operate_type = 'insert'
