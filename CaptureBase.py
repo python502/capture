@@ -152,19 +152,30 @@ class CaptureBase(object):
     @match： 去重使用的主键
     @return: 去重后数据
     '''
+    # def _rm_duplicate(self, scr_datas, match):
+    #     goods = {}
+    #     repeat_num = 0
+    #     for data in scr_datas:
+    #         if goods.get(data[match]):
+    #             logger.debug('find repead data: {}'.format(data[match]))
+    #             logger.debug('data: {}'.format(data))
+    #             logger.debug('save_data: {}'.format(goods.get(data[match])))
+    #             repeat_num += 1
+    #         else:
+    #             goods[data[match]] = data
+    #     logger.info('repead data count: {}'.format(repeat_num))
+    #     return [value for value in goods.itervalues()]
     def _rm_duplicate(self, scr_datas, match):
-        goods = {}
-        repeat_num = 0
+        key_value = []
+        result = []
         for data in scr_datas:
-            if goods.get(data[match]):
-                logger.debug('find repead data: {}'.format(data[match]))
-                logger.debug('data: {}'.format(data))
-                logger.debug('save_data: {}'.format(goods.get(data[match])))
-                repeat_num += 1
+            if data.get(match) in key_value:
+                logger.debug('find repead data: {}'.format(data))
+                continue
             else:
-                goods[data[match]] = data
-        logger.info('repead data count: {}'.format(repeat_num))
-        return [value for value in goods.itervalues()]
+                key_value.append(data.get(match))
+            result.append(data)
+        return result
 
     '''
     function: 查看商品是否已经在数据库中，将原始数据分割成需要insert的和需要update的
