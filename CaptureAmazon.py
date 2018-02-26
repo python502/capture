@@ -74,20 +74,20 @@ class CaptureAmazon(CaptureBase):
             numSet = 100 #每次爬取多少记录，可支持最大值是100
             html = self.getHtml(categoryurl, self.header)
             # data = '{"requestMetadata":{"marketplaceID":"ATVPDKIKX0DER","clientID":"goldbox_mobile_pc","sessionID":"139-3159259-1881936"},"dealTargets":[{"dealID":"4577b235"},{"dealID":"52668fbe"},{"dealID":"724ca365"},{"dealID":"e6ba5e93"}],"responseSize":"ALL","itemResponseSize":"DEFAULT_WITH_PREEMPTIVE_LEAKING","widgetContext":{"pageType":"GoldBox","subPageType":"main","deviceType":"pc","refRID":"TW3AYWM2XCBXJBHK98AR","widgetID":"38e1504b-c126-4f80-b9f9-efce015af061","slotName":"slot-4"}}'
-            pattern = re.compile(r'"amznMerchantID" : "\w+"', re.M)
+            pattern = re.compile(r'"amznMerchantID"\s*:\s*"\w+"', re.M)
             amznMerchantID = pattern.findall(html)[0]
             amznMerchantID = amznMerchantID.split(':')[1].strip().strip('"')
 
-            pattern = re.compile(r'"sessionId" : "[-\w]+"', re.M)
+            pattern = re.compile(r'"sessionId"\s*:\s*"[-\w]+"', re.M)
             sessionId = pattern.findall(html)[0].split(':')[1].strip().strip('"')
 
             pattern = re.compile(r'var ue_id=\'\w+\'', re.M)
             refRID = pattern.findall(html)[0].split('=')[1].strip().strip('\'')
 
-            pattern = re.compile(r'"widgetID" : "[-\w]+"', re.M)
+            pattern = re.compile(r'"widgetID"\s*:\s*"[-\w]+"', re.M)
             widgetID = pattern.findall(html)[0].split(':')[1].strip().strip('"')
 
-            pattern = re.compile(r'"slotName" : "slot-\d*"', re.M)
+            pattern = re.compile(r'"slotName"\s*:\s*"slot-\d*"', re.M)
             slotNames = pattern.findall(html)  # refRID
             slotNames = [slot.split(':')[1].strip().strip('"') for slot in slotNames]
 
@@ -123,6 +123,7 @@ class CaptureAmazon(CaptureBase):
     def format_data(self, category, sourceDatas):
         resultDatas = []
         Not_BEST_DEAL = 0
+        url = 'https://www.amazon.com/dp/{}'
         for sourceData in sourceDatas.values():
             try:
                 resultData = {}
@@ -142,16 +143,15 @@ class CaptureAmazon(CaptureBase):
 
                 if not sourceData.get('egressUrl') and not sourceData.get('ingressUrl'):
                     logger.error('sourceData:{} not find egressUrl and ingressUrl'.format(sourceData))
+                    resultData['LINK'.lower()] = url.format(resultData['PRODUCT_ID'.lower()])
+                else:
+                        resultData['LINK'.lower()] = sourceData.get('egressUrl').strip() if sourceData.get('egressUrl') else sourceData.get('ingressUrl').strip()
+
+                if not sourceData.get('primaryImage') and not sourceData.get('teaserImage'):
+                    logger.error('sourceData:{} not find primaryImage and teaserImage'.format(sourceData))
                     continue
                 else:
-                    resultData['LINK'.lower()] = sourceData.get('egressUrl').strip() if sourceData.get('egressUrl').strip() else sourceData.get('ingressUrl').strip()
-
-                if not sourceData.get('primaryImage'):
-                    logger.error('sourceData:{} not find primaryImage'.format(sourceData))
-                    continue
-                else:
-                    resultData['MAIN_IMAGE'.lower()] = sourceData.get('primaryImage').strip()
-
+                    resultData['MAIN_IMAGE'.lower()] = sourceData.get('primaryImage').strip() if sourceData.get('primaryImage') else sourceData.get('teaserImage').strip()
 
                 resultData['NAME'.lower()] = sourceData.get('title').strip().replace('"',r'\"')
                 resultData['DESCRIPTION'.lower()] = sourceData.get('description').strip().replace('"', r'\"')
@@ -253,7 +253,8 @@ class CaptureAmazon(CaptureBase):
     '''
     def dealCategorys(self):
         try:
-            formatUrl = 'https://www.amazon.com/gp/goldbox/?gb_f_GB-SUPPLE=enforcedCategories:{},sortOrder:BY_SCORE,dealStates:AVAILABLE%252CWAITLIST%252CWAITLISTFULL'
+            # formatUrl = 'https://www.amazon.com/gp/goldbox/?gb_f_GB-SUPPLE=enforcedCategories:{},sortOrder:BY_SCORE,dealStates:AVAILABLE%252CWAITLIST%252CWAITLISTFULL'
+            formatUrl = 'https://www.amazon.com/gp/goldbox?gb_f_deals1=dealStates:AVAILABLE%252CWAITLIST%252CWAITLISTFULL%252CEXPIRED%252CSOLDOUT%252CUPCOMING,sortOrder:BY_SCORE,enforcedCategories:{}'
             departments = self.__get_department()
             logger.debug('departments: {}'.format(departments))
             Urls = [[department.get('category'), formatUrl.format(department.get('nodeId'))] for department in departments]
@@ -424,7 +425,7 @@ def main():
     # 查询dealID的商品信息
     # objCaptureAmazon.getCategoryGoods('ATVPDKIKX0DER','134-6378449-3791711', [{"dealID": "862d423c"}], 'HKWF4KQNXA8YEVZHWF5Y', '30c09623-33cf-4469-be4c-3e8293ae0ee9', ['slot-3', 'slot-4', 'slot-6'])
     # 查询并入库特别类别的商品信息
-    # objCaptureAmazon.dealCategory('Kitchen', 'https://www.amazon.com/gp/goldbox/?gb_f_GB-SUPPLE=enforcedCategories:284507,sortOrder:BY_SCORE,dealStates:AVAILABLE%252CWAITLIST%252CWAITLISTFULL')
+    # objCaptureAmazon.dealCategory('Women's Shoes', 'https://www.amazon.com/gp/goldbox/?gb_f_GB-SUPPLE=enforcedCategories:284507,sortOrder:BY_SCORE,dealStates:AVAILABLE%252CWAITLIST%252CWAITLISTFULL')
     # 获取具体网址的html信息
     # objCaptureAmazon.getHtml('https://images-na.ssl-images-amazon.com/captcha/usvmgloq/Captcha_jxqunydgna.jpg')
     # objCaptureAmazon.getHtml('https://www.amazon.com/gp/goldbox/?gb_f_GB-SUPPLE=enforcedCategories:2625373011,sortOrder:BY_SCORE,dealStates:AVAILABLE%252CWAITLIST%252CWAITLISTFULL', objCaptureAmazon.header)
