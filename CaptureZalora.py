@@ -76,7 +76,7 @@ class CaptureZalora(CaptureBase):
             if not goods_infos:
                 logger.error('pageurl :{} get None googs'.format(pageurl))
                 return []
-            goods_infos = json.loads(goods_infos[0].strip())['result']['response']['docs']
+            goods_infos = json.loads(goods_infos[0].strip(','))['result']['response']['docs']
             for goods_info in goods_infos:
                 result_data = {}
                 result_data['CHANNEL'.lower()] = self.Channel
