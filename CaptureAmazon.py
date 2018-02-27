@@ -142,7 +142,7 @@ class CaptureAmazon(CaptureBase):
                     resultData['PRODUCT_ID'.lower()] = sourceData.get('impressionAsin').strip()
 
                 if not sourceData.get('egressUrl') and not sourceData.get('ingressUrl'):
-                    logger.error('sourceData:{} not find egressUrl and ingressUrl'.format(sourceData))
+                    # logger.error('sourceData:{} not find egressUrl and ingressUrl'.format(sourceData))
                     resultData['LINK'.lower()] = url.format(resultData['PRODUCT_ID'.lower()])
                 else:
                         resultData['LINK'.lower()] = sourceData.get('egressUrl').strip() if sourceData.get('egressUrl') else sourceData.get('ingressUrl').strip()

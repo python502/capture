@@ -98,8 +98,14 @@ class CaptureBase(object):
         try:
             con = urllib2.urlopen(request, timeout=10)
             return con
+        except urllib2.HTTPError, e:
+            logger.error('urlopen error code: {}'.format(e.code))
+            raise
+        except urllib2.URLError, e:
+            logger.error('urlopen error reason: {}'.format(e.reason))
+            raise
         except Exception, e:
-            logger.error('urlopen error retry.e: {}'.format(e))
+            logger.error('urlopen error e: {}'.format(e))
             raise
 
     '''
