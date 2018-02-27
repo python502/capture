@@ -98,7 +98,9 @@ def runner_capture():
         pool.close()
         pool.join()  # 调用join之前，先调用close函数，否则会出错。执行完close后不会有新的进程加入到pool,join函数等待所有子进程结束
         logger.info('runner_capture all end.')
+        logger.info('* '*50)
         logger.info('result:{}'.format(sorted(result_end, key=lambda asd: (asd[1], asd[0]))))
+        logger.info('* '*50)
     except Exception, e:
         logger.error('runner_capture error: {}'.format(e))
 

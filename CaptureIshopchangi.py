@@ -274,11 +274,30 @@ class CaptureIshopchangi(CaptureBase):
         logger.info('get_department: {}'.format(self.__get_department()))
         print '*'*40
 
+    # @retry(stop_max_attempt_number=5, wait_fixed=3000)
+    # def __get_department(self):
+    #     try:
+    #         results = []
+    #         page_source = self.__getHtmlselenium(self.home_url, '//*[@id="navigationstrip"]')
+    #         soup = BeautifulSoup(page_source, 'lxml')
+    #         catalogs = soup.find('div', {'id': 'navigationstrip'}).findAll('div', {'class': 'holder notouch'})
+    #         for catalog in catalogs:
+    #             href = catalog.find('a').attrs['href'].replace('productpage', 'productlistings')
+    #             url = urljoin(self.home_url, href)
+    #             kind = catalog.find('a').getText().strip()
+    #             kind = CaptureIshopchangi.filter_emoji(kind)
+    #             result = [kind.encode('utf-8'), url]
+    #             results.append(result)
+    #         return results
+    #     except Exception, e:
+    #         logger.error('__get_department error: {}, retry it'.format(e))
+    #         raise
+
     @retry(stop_max_attempt_number=5, wait_fixed=3000)
     def __get_department(self):
         try:
             results = []
-            page_source = self.__getHtmlselenium(self.home_url, '//*[@id="navigationstrip"]')
+            page_source = self.getHtml(self.home_url, self.header)
             soup = BeautifulSoup(page_source, 'lxml')
             catalogs = soup.find('div', {'id': 'navigationstrip'}).findAll('div', {'class': 'holder notouch'})
             for catalog in catalogs:
