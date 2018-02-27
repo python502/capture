@@ -20,9 +20,11 @@ from bs4 import BeautifulSoup
 from retrying import retry
 from datetime import datetime
 from urlparse import urljoin
-
+import json
 class CaptureIshopchangi(CaptureBase):
     home_url = 'https://www.ishopchangi.com/'
+    img_url = 'https://www.ishopchangi.com/IMG/crmbanner/'
+    banner_url = 'https://www.ishopchangi.com/AppEngine/cmsservice/GetContents.ashx?languageCode=en-US&contentPath=cagecom%2FBanners%2FDesktop%2Fen-US'
     HEADER = '''
             accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8
             accept-encoding:gzip, deflate, br
@@ -31,12 +33,22 @@ class CaptureIshopchangi(CaptureBase):
             upgrade-insecure-requests:1
             User-Agent:{}
             '''
+    BANNER_HEADER = '''
+            accept:application/json, text/javascript, */*; q=0.01
+            accept-encoding:gzip, deflate, br
+            accept-language:zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7
+            content-type:application/json
+            referer:https://www.ishopchangi.com/
+            user-agent:{}
+            x-requested-with:XMLHttpRequest
+            '''
     page_num = u'100'
     page_need = 1
     Channel = 'ishopchangi'
     def __init__(self, user_agent, proxy_ip=None):
         super(CaptureIshopchangi, self).__init__(user_agent, proxy_ip)
         self.header = self._getDict4str(self.HEADER.format(self.user_agent))
+        self.banner_header = self._getDict4str(self.BANNER_HEADER.format(self.user_agent))
 
     def __del__(self):
         super(CaptureIshopchangi, self).__del__()
@@ -200,18 +212,28 @@ class CaptureIshopchangi(CaptureBase):
     def dealHomeGoods(self):
         result_datas = []
         try:
-            page_source = self.__getHtmlselenium(self.home_url, '//*[@id="homebanner"]/div[2]/div/div[2]')
-            soup = BeautifulSoup(page_source, 'lxml')
-            # pre_load_data = soup.findAll('div', {'data-ng-repeat': 'product in products'})
-            pre_load_data = soup.find('div', {'class': 'swiper-container'}).findAll('div', {'data-ng-bind-html': 'slide'})[1:-1]
+            response = self.getHtml(self.banner_url, self.banner_header)
+            pre_load_data = json.loads(response)['contents']
             for load_data in pre_load_data:
                 try:
                     logger.debug('load_data: {}'.format(load_data))
                     resultData = {}
                     resultData['CHANNEL'.lower()] = self.Channel
                     resultData['STATUS'.lower()] = '01'
-                    resultData['LINK'.lower()] = load_data.find('a').attrs['href']
-                    resultData['MAIN_IMAGE'.lower()] = urljoin(self.home_url, load_data.find('img').attrs['src'])
+                    resultData['TITLE'.lower()] = load_data['title']
+                    desc = load_data['desc']
+                    if desc.startswith('https://'):
+                        resultData['LINK'.lower()] = desc
+                    elif desc.startswith('<'):
+                        soup = BeautifulSoup(desc, 'lxml')
+                        # if soup.find('a',{'class':"in-cell-link"}):
+                        #     resultData['LINK'.lower()] = soup.find('a',{'class':"in-cell-link"}).attrs['href']
+                        # else:
+                        resultData['LINK'.lower()] = soup.find('span').getText().strip('\n').strip().strip('\n')
+                    else:
+                        logger.error('error banner desc :{}'.format(desc))
+                        break
+                    resultData['MAIN_IMAGE'.lower()] = urljoin(self.img_url, load_data['contentBanner'])
                     resultData['CREATE_TIME'.lower()] = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
                     result_datas.append(resultData)
                 except Exception, e:
@@ -220,14 +242,14 @@ class CaptureIshopchangi(CaptureBase):
                     continue
             result_datas = self._rm_duplicate(result_datas, 'LINK'.lower())
             if len(result_datas) == 0:
-                logger.error('page_source: {}'.format(page_source))
+                logger.error('page_source: {}'.format(response))
                 raise ValueError('not get valid data')
 
             format_select = r'SELECT ID FROM {} WHERE CHANNEL="{{channel}}" and LINK="{{link}}" ORDER BY CREATE_TIME DESC'
             good_datas = result_datas
             select_sql = format_select.format(self.TABLE_NAME_BANNER)
             table = self.TABLE_NAME_BANNER
-            replace_insert_columns = ['CHANNEL', 'LINK', 'MAIN_IMAGE', 'CREATE_TIME', 'STATUS']
+            replace_insert_columns = ['CHANNEL', 'LINK', 'MAIN_IMAGE', 'CREATE_TIME', 'STATUS', 'TITLE']
             select_columns = ['ID']
             return self._saveDatas(good_datas, table, select_sql, replace_insert_columns, select_columns)
         except Exception, e:
@@ -267,7 +289,7 @@ def main():
     objCaptureIshopchangi = CaptureIshopchangi(useragent)
     # 查询并入库所有类别的商品信息
     # objCaptureIshopchangi.get_department()
-    objCaptureIshopchangi.dealCategorys()
+    # objCaptureIshopchangi.dealCategorys()
     objCaptureIshopchangi.dealHomeGoods()
     # html = objCaptureIshopchangi.getHtmlselenium(objCaptureIshopchangi.home_url,sleep_time=30)
     # print html
