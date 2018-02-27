@@ -29,7 +29,8 @@ class CaptureHervelvetvase(CaptureBase):
             Accept-Encoding:gzip, deflate
             Accept-Language:zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7
             Cache-Control:max-age=0
-            Host:www.hervelvetvase.com
+            Connection:keep-alive
+            Host:www.hervelvetvase.com.sg
             Upgrade-Insecure-Requests:1
             User-Agent:{}
             '''
