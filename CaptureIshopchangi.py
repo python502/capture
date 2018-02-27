@@ -21,10 +21,13 @@ from retrying import retry
 from datetime import datetime
 from urlparse import urljoin
 import json
+import urllib
+import re
 class CaptureIshopchangi(CaptureBase):
     home_url = 'https://www.ishopchangi.com/'
     img_url = 'https://www.ishopchangi.com/IMG/crmbanner/'
     banner_url = 'https://www.ishopchangi.com/AppEngine/cmsservice/GetContents.ashx?languageCode=en-US&contentPath=cagecom%2FBanners%2FDesktop%2Fen-US'
+    product_url = 'https://www.ishopchangi.com/WSHub/wsProduct.asmx/GetProductGroupByFilterEx'
     HEADER = '''
             accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8
             accept-encoding:gzip, deflate, br
@@ -61,12 +64,19 @@ class CaptureIshopchangi(CaptureBase):
     def dealCategory(self, department):
         category = department[0]
         page_url = department[1]
+        pattern = re.compile(r'\d+$', re.M)
+        category_id = pattern.findall(page_url)[0]
         format_url = '{}?p={}'
         goods_infos = []
+        infos = {}
         try:
             for i in xrange(1, self.page_need+1):
                 page_url_tmp = format_url.format(page_url, i)
-                page_results = self.getGoodInfos(category, page_url_tmp)
+                infos['referer'] = page_url_tmp
+                infos['current_page'] = str(i)
+                infos['page_num'] = self.page_num
+                infos['category_id'] = category_id
+                page_results = self.getGoodInfos(category, infos)
                 if not page_results or len(page_results) != int(self.page_num):
                     break
                 goods_infos.extend(page_results)
@@ -80,20 +90,28 @@ class CaptureIshopchangi(CaptureBase):
     '''
     function: 获取单页商品信息
     @category： 分类名
-    @firsturl： 商品页url
+    @firsturl： 商品页信息
     @return: True or False or raise
     '''
     # @retry(stop_max_attempt_number=3, wait_fixed=2000)
-    def getGoodInfos(self, category, pageurl):
+    def getGoodInfos(self, category, infos):
         try:
-            logger.debug('pageurl: {}'.format(pageurl))
+            logger.debug('pageurl: {}'.format(infos['referer']))
             result_datas = []
-            page_source = self.__getHtmlselenium(pageurl, '//*[@id="view-container"]/div/div/div[1]/div[3]/div[2]/div[4]/div[1]/div[2]/div[1]', header=True, timeout=60)
-            if not page_source:
-                logger.error('pageurl:{} not found'.format(pageurl))
-                return None
-            soup = BeautifulSoup(page_source, 'lxml')
-            goods_infos = soup.findAll('div', {'data-ng-repeat': 'product in products'})
+            header = '''
+            accept:application/json, text/javascript, */*; q=0.01
+            accept-encoding:gzip, deflate, br
+            accept-language:zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7
+            content-type:application/json
+            origin:https://www.ishopchangi.com
+            referer:{}
+            user-agent:{}
+            x-requested-with:XMLHttpRequest'''
+            header = self._getDict4str(header.format(infos['referer'], self.user_agent))
+            data = {"categories":infos['category_id'],"brand":"","minPrice":0,"maxPrice":5000,"flightType":"departure|arrival|delivery|","filterBy":"","filterPageSize":infos['page_num'],"currentPageindex":infos['current_page'],"langType":"en-US","sortBy":"popularity","tagName":"","deliveryAvailable":""}
+            data = json.dumps(data)
+            response = self.getHtml(self.product_url, header, data)
+            goods_infos = json.loads(json.loads(response)['d'])['Items']
             for goods_info in goods_infos:
                 result_data = {}
                 result_data['CHANNEL'.lower()] = self.Channel
@@ -101,21 +119,16 @@ class CaptureIshopchangi(CaptureBase):
                 result_data['STATUS'.lower()] = '01'
                 result_data['Currency'.lower()] = 'SGD'
                 try:
-                    result_data['PRODUCT_ID'.lower()] = goods_info.find('div', {'class': 'productdetails productListingItem'}).attrs['data-productid']
-                    result_data['LINK'.lower()] = urljoin(self.home_url, goods_info.find('div', {'class': 'productdetails productListingItem'}).attrs['data-producturl'])
-                    result_data['MAIN_IMAGE'.lower()] = goods_info.find('img', {'class': 'lazy'}).attrs['data-original']
-                    result_data['NAME'.lower()] = goods_info.find('div', {'class': 'productdetails productListingItem'}).attrs['data-productname']
-                    result_data['AMOUNT'.lower()] = float(goods_info.find('div', {'class':'productdetails productListingItem'}).attrs['data-price'].replace(',', ''))
-                    result_data['SITE'.lower()] = goods_info.find('div', {'class': 'productdetails productListingItem'}).attrs['data-category']
-                    try:
-                        result_data['Before_AMOUNT'.lower()] = float(goods_info.find('span', {'class':"listprice ng-binding"}).getText().strip().replace(',', ''))
-                    except Exception, e:
-                        result_data['Before_AMOUNT'.lower()] = 0
-                    try:
-                        result_data['RESERVE'.lower()] = goods_info.find('div', {'class':'productdetails productListingItem'}).attrs['data-dimension8']
-                    except Exception:
-                        result_data['RESERVE'.lower()] = 0
-
+                    result_data['PRODUCT_ID'.lower()] = goods_info.get(u'ProductGroupAutoID')
+                    format_link = 'https://www.ishopchangi.com/product/{}-{}-{}'
+                    result_data['LINK'.lower()] = format_link.format(goods_info.get(u'ProductGroupTitleSlug'), goods_info.get(u'ProductGroupAutoID'), goods_info.get(u'LP_ConcessionaireAutoID'))
+                    result_data['MAIN_IMAGE'.lower()] = goods_info.get(u'GroupImage')
+                    result_data['NAME'.lower()] = goods_info.get(u'LP_BrandName')
+                    result_data['AMOUNT'.lower()] = goods_info.get(u'Org_Disc_Price')
+                    result_data['SITE'.lower()] = goods_info.get(u'CategoryDisplayName')
+                    result_data['Before_AMOUNT'.lower()] = goods_info.get(u'Org_Price')
+                    #0  soldout    1   notsoldout
+                    result_data['RESERVE'.lower()] = 0 if goods_info.get(u'IsSoldOut') else 1
                     result_data['CREATE_TIME'.lower()] = time.strftime('%Y%m%d%H%M%S', time.localtime(time.time()))
                     result_datas.append(result_data)
                 except Exception, e:
@@ -288,9 +301,9 @@ def main():
 
     objCaptureIshopchangi = CaptureIshopchangi(useragent)
     # 查询并入库所有类别的商品信息
-    # objCaptureIshopchangi.get_department()
-    # objCaptureIshopchangi.dealCategorys()
-    objCaptureIshopchangi.dealHomeGoods()
+    objCaptureIshopchangi.get_department()
+    objCaptureIshopchangi.dealCategorys()
+    # objCaptureIshopchangi.dealHomeGoods()
     # html = objCaptureIshopchangi.getHtmlselenium(objCaptureIshopchangi.home_url,sleep_time=30)
     # print html
 
