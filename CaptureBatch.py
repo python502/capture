@@ -29,6 +29,7 @@ from CaptureTaobao import CaptureTaobao
 from CaptureUniqlo import CaptureUniqlo
 from CaptureVexicot import CaptureVexicot
 from CaptureZalora import CaptureZalora
+from CaptureKkday import CaptureKkday
 from logger import logger
 from datetime import datetime
 import random
@@ -62,6 +63,7 @@ nodes = {
     'Uniqlo': InfoConfig(CaptureUniqlo(random.choice(UserAgents)), 3),
     'Vexicot': InfoConfig(CaptureVexicot(random.choice(UserAgents)), 3),
     'Zalora': InfoConfig(CaptureZalora(random.choice(UserAgents)), 3),
+    'Kkday': InfoConfig(CaptureKkday(random.choice(UserAgents)), 3),
 }
 
 lock = multiprocessing.Lock()
