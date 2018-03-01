@@ -31,6 +31,7 @@ from CaptureVexicot import CaptureVexicot
 from CaptureZalora import CaptureZalora
 from CaptureKkday import CaptureKkday
 from CaptureLovebonito import CaptureLovebonito
+from CaptureZaful import CaptureZaful
 from logger import logger
 from datetime import datetime
 import random
@@ -66,6 +67,7 @@ nodes = {
     'Zalora': InfoConfig(CaptureZalora(random.choice(UserAgents)), 3),
     'Kkday': InfoConfig(CaptureKkday(random.choice(UserAgents)), 3),
     'Lovebonito': InfoConfig(CaptureLovebonito(random.choice(UserAgents)), 3),
+    'Zaful': InfoConfig(CaptureZaful(random.choice(UserAgents)), 3),
 }
 
 lock = multiprocessing.Lock()
