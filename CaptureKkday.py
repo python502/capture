@@ -14,10 +14,8 @@ Created on 2016年6月4日
 '''
 from CaptureBase import CaptureBase
 import time
-import copy
 from CrawlingProxy import CrawlingProxy,useragent
 from logger import logger
-from bs4 import BeautifulSoup
 from retrying import retry
 from datetime import datetime
 from urlparse import urljoin
