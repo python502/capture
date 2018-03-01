@@ -33,12 +33,12 @@ class CaptureKkday(CaptureBase):
             Cache-Control:max-age=0
             Host:www.kkday.com
             Upgrade-Insecure-Requests:1
-            User-Agent:{}
+            User-Agent:Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.186 Safari/537.36
             '''
     Channel = 'kkday'
     def __init__(self, user_agent, proxy_ip=None):
         super(CaptureKkday, self).__init__(user_agent, proxy_ip)
-        self.header = self._getDict4str(self.HEADER.format(self.user_agent))
+        self.header = self._getDict4str(self.HEADER)
 
     def __del__(self):
         super(CaptureKkday, self).__del__()
@@ -79,6 +79,9 @@ class CaptureKkday(CaptureBase):
             replace_insert_columns = ['CHANNEL', 'LINK', 'MAIN_IMAGE', 'CREATE_TIME', 'MIN_IMAGE', 'STATUS', 'TITLE']
             select_columns = ['ID']
             return self._saveDatas(good_datas, table, select_sql, replace_insert_columns, select_columns)
+        except IndexError, e:
+            logger.error('Get home goods infos error:{}'.format(e))
+            return False
         except Exception, e:
             logger.error('Get home goods infos error:{},retry it'.format(e))
             raise
