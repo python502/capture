@@ -158,19 +158,6 @@ class CaptureBase(object):
     @match： 去重使用的主键
     @return: 去重后数据
     '''
-    # def _rm_duplicate(self, scr_datas, match):
-    #     goods = {}
-    #     repeat_num = 0
-    #     for data in scr_datas:
-    #         if goods.get(data[match]):
-    #             logger.debug('find repead data: {}'.format(data[match]))
-    #             logger.debug('data: {}'.format(data))
-    #             logger.debug('save_data: {}'.format(goods.get(data[match])))
-    #             repeat_num += 1
-    #         else:
-    #             goods[data[match]] = data
-    #     logger.info('repead data count: {}'.format(repeat_num))
-    #     return [value for value in goods.itervalues()]
     def _rm_duplicate(self, scr_datas, match):
         key_value = []
         result = []
