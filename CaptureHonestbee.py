@@ -20,6 +20,7 @@ import time
 import copy
 import gevent
 import thread
+import ast
 from CrawlingProxy import CrawlingProxy,useragent
 from logger import logger
 from retrying import retry
@@ -180,14 +181,14 @@ class CaptureHonestbee(CaptureBase):
             pattern_d = re.compile(r'"departments":\{"byId"[\s\S]*?\},"festiveCampaign"', re.S)
             depantments_infos = '{'+pattern_d.findall(page_infos)[0][:-18]+'}'
             depantments_infos = depantments_infos.replace('false', 'False').replace('true', 'True').replace('null', 'None')
-            depantments_infos = eval(depantments_infos)
+            depantments_infos = ast.literal_eval(depantments_infos)
             depantments_infos.get('departments').get('byId')
 
             #get categories
             pattern_c = re.compile(r'"categories":\{"byId"[\s\S]*\}\},"checkout"', re.S)
             categories_infos = '{'+pattern_c.findall(page_infos)[0][:-11]+'}'
             categories_infos = categories_infos.replace('false', 'False').replace('true', 'True').replace('null', 'None')
-            categories_infos = eval(categories_infos)
+            categories_infos = ast.literal_eval(categories_infos)
 
             depantments_infos = depantments_infos.get('departments').get('byId')
             categories_infos = categories_infos.get('categories').get('byId')

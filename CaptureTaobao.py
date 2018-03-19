@@ -11,6 +11,7 @@ import urllib
 import re
 import json
 import time
+import ast
 from CrawlingProxy import CrawlingProxy,useragent
 from logger import logger
 from bs4 import BeautifulSoup
@@ -256,7 +257,7 @@ class CaptureTaobao(CaptureBase):
                         raise ValueError
                     page_infos = page_infos[16:-1]
                     page_infos = page_infos.replace('false', 'False').replace('true', 'True')
-                    page_infos = eval(page_infos)
+                    page_infos = ast.literal_eval(page_infos)
                     break
                 except Exception:
                     endTime = datetime.now()
